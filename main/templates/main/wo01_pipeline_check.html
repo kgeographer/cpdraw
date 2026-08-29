@@ -1,0 +1,21 @@
+{% load django_vite %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CPDraw — WO-0.1 pipeline check</title>
+
+  {# HMR client in dev; renders nothing when DEBUG=False. #}
+  {% vite_hmr_client %}
+  {# <script type="module"> + hashed <link> for the CSS. Manifest key = the #}
+  {# Rollup input path from frontend/vite.config.ts. #}
+  {% vite_asset 'src/draw/main.ts' %}
+</head>
+<body>
+  <noscript>This page needs JavaScript — it exists only to prove the Vite build loads.</noscript>
+
+  {# main.ts mounts the Svelte SmokeProbe component here. #}
+  <div id="cpdraw-draw-root"></div>
+</body>
+</html>

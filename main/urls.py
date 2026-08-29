@@ -11,6 +11,11 @@ app_name='main'
 urlpatterns = [
     path(r'', login_required(TemplateView.as_view(
         template_name="main/draw.html")), name="draw"),
+    # WO-0.1 scaffolding: smoke-tests the Vite/Svelte/Allmaps build pipeline at
+    # /draw/_wo01/. No auth, not in any nav. Removed when WO-0.3 puts the real
+    # OpenSeadragon viewer on the Draw page.
+    path('_wo01/', TemplateView.as_view(
+        template_name="main/wo01_pipeline_check.html"), name="wo01-pipeline-check"),
     path('<int:projid>/', views.DrawView.as_view(), name='draw'),
     path('fetch_projects/', views.fetchProjects, name='fetch-projects'),
     

@@ -21,3 +21,9 @@ local_settings.py
 .env
 .venv/
 .idea/
+
+### Frontend build tooling (WO-0.1) ###
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo

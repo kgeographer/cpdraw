@@ -1,0 +1,11 @@
+# pnpm 10.16+/11 keeps build-script triage here (not in package.json). pnpm 11
+# also exits non-zero on any un-triaged install script, so every dependency
+# that ships one must get an explicit true/false below.
+#
+#   esbuild           -> true:  Vite's bundler; install.js wires up the native binary.
+#   svelte-preprocess -> false: transitive; its postinstall is just a funding notice.
+#
+# Re-run `pnpm approve-builds` if a dependency bump introduces a new script.
+allowBuilds:
+  esbuild: true
+  svelte-preprocess: false

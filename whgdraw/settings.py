@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'rest_framework_datatables',
     'fontawesome_5',
     'leaflet',
+    'django_vite',
 
     'accounts.apps.AccountsConfig',
     'main.apps.MainConfig',
@@ -157,6 +158,11 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'whgdraw/static/'),
     os.path.join(BASE_DIR, 'main/static/'),
+    # Vite build output (WO-0.1). The ('frontend', ...) prefix means these are
+    # served/collected under /static/frontend/..., matching Vite's `base` and
+    # DJANGO_VITE static_url_prefix below. Directory is absent until the first
+    # `pnpm --dir frontend build`; harmless when missing.
+    ('frontend', os.path.join(BASE_DIR, 'frontend/dist/')),
 ]
 
 STORAGES = {
@@ -192,5 +198,28 @@ DATABASES = {
         'PASSWORD': os.environ.get('PGPASSWORD', ''),
         'HOST': os.environ.get('PGHOST', 'localhost'),
         'PORT': os.environ.get('PGPORT', '5432'),
+    }
+}
+
+# --- Frontend build pipeline (WO-0.1) ------------------------------------------
+# Vite bundles the ESM-only Allmaps packages and the Svelte-authored Annotorious
+# plugin code that the predecessor's script-tag/jQuery setup could not consume.
+#
+#   dev  (DEBUG=True):  run `pnpm --dir frontend dev` alongside runserver;
+#                       django-vite points <script type="module"> at the Vite
+#                       dev server on :5173 and injects the HMR client.
+#   prod (DEBUG=False): run `pnpm --dir frontend build` before collectstatic;
+#                       django-vite reads frontend/dist/.vite/manifest.json and
+#                       emits hashed tags served from /static/frontend/.
+#
+# Placed after the local_settings import so dev_mode tracks the final DEBUG.
+DJANGO_VITE = {
+    'default': {
+        'dev_mode': DEBUG,
+        'dev_server_port': 5173,
+        'static_url_prefix': 'frontend',
+        'manifest_path': os.path.join(
+            BASE_DIR, 'frontend', 'dist', '.vite', 'manifest.json'
+        ),
     }
 }

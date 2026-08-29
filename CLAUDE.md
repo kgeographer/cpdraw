@@ -39,6 +39,27 @@ this project's local db, and (unrelatedly, a pre-existing inconsistency) the *lp
 production database name on the deployment VM. If a task involves the VM or lpdraw's data, be
 explicit about which one is meant.
 
+## Frontend build (WO-0.1 — done)
+
+`frontend/` is a Vite project (see `frontend/README.md` for the full picture). Bridged into
+Django templates by **django-vite** — `DJANGO_VITE` block in `whgdraw/settings.py`, tags in
+templates. Toolchain deliberately pinned to **Node 22 / Vite 5 / Svelte 4** to match
+Annotorious v3.8.9's runtime (the point/polyline plugin in WO-0.4 compiles against it) — do
+not bump ahead of Annotorious.
+
+- **Node** is installed keg-only via Homebrew. Interactive shells get it from `~/.zshrc`;
+  a non-interactive command needs `export PATH="/opt/homebrew/opt/node@22/bin:$PATH"` first.
+  pnpm is via Corepack (`pnpm`, not `npm`).
+- **Dev = two processes:** `python manage.py runserver` **and** `pnpm --dir frontend dev`
+  (Vite on :5173, HMR). With `DEBUG=True` django-vite points `<script>` at the dev server.
+- **Prod:** `pnpm --dir frontend build` (writes `frontend/dist/` + manifest) **before**
+  `collectstatic`. With `DEBUG=False` django-vite emits hashed tags served from
+  `/static/frontend/`.
+- **Smoke page:** `/draw/_wo01/` — throwaway, proves ESM-Allmaps + Svelte both load. Delete
+  it, `SmokeProbe.svelte`, and the `wo01-pipeline-check` route when WO-0.3 lands the real
+  OpenSeadragon viewer.
+- This is build-time Node only; runtime Node for `@allmaps/cli` is still Open Question 3.
+
 ## Key decisions already made (see scoping doc for full reasoning)
 
 - Image-space (unrectified IIIF source, pixel coordinates) is canonical; geo-space is derived
