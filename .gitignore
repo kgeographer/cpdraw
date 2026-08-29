@@ -1,0 +1,23 @@
+_dumps/
+_notes/
+_older/
+_scratch/
+media/
+tiles/
+
+.DS_Store
+*.wp*
+
+### Django ###
+*.log
+*.pot
+*.pyc
+__pycache__/
+whgdraw/__pycache__/
+local_settings.py
+
+/static
+
+.env
+.venv/
+.idea/

@@ -1,0 +1,12 @@
+Django==5.2.*
+psycopg[binary]==3.3.*
+python-dotenv==1.2.*
+whitenoise==6.11.*
+
+django-leaflet==0.34.*
+django-geojson==4.2.*
+django-fontawesome-5==1.0.*
+djangorestframework==3.18.*
+djangorestframework-datatables==0.7.*
+geojson==3.3.*
+reverse-geocoder==1.5.*

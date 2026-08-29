@@ -1,0 +1,43 @@
+{% extends 'main/base.html' %}
+
+{% block content %}
+
+<div class="container">
+  <div class="d-flex justify-content-center mt-3">
+    <div>
+    {% if error %} <p style="color:red">{{ error }}</p> {% endif %}
+
+    <h2>Register</h2>
+    <form method="post" action="{% url 'register' %}">
+      {% csrf_token %}
+      <input type="hidden" name="first_name" value="n/a"/>
+      <input type="hidden" name="last_name" value="n/a"/>
+      <input type="hidden" name="user_type" value="individual"/>
+      Username<br/>
+      <input type="text" name="username" />
+      <br/>
+      Full name<br/>
+      <input type="text" name="name" />
+      <br/>
+      Email<br/>
+      <input type="text" name="email" />
+      <br/>
+      Affiliation<br/>
+      <input type="text" name="affiliation" />
+      <br/>
+      Web page<br/>
+      <input type="text" name="web_page" />
+      <br/>
+      Password<br/>
+      <input type="password" name="password1" />
+      <br/>
+      Confirm password<br/>
+      <input type="password" name="password2" />
+      <br/><br/>
+      <input class="btn btn-primary" type="submit" value="Register" />
+    </form>
+  </div>
+  </div>
+</div>
+<script type="text/javascript"></script>
+{% endblock %}

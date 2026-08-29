@@ -1,0 +1,343 @@
+PROMPT
+======
+Do you think it would be possible to create a skill or an agent, depending on the platform, whether it's ChatGPT or Claude or some other platform, that would be able to take a fairly high-resolution image of an old map and trace the borders that are depicted on it, for example, country borders, maybe with some guidance to trace that as a vector that could ultimately be saved as a polygon geodata. It could be saved in any format and then converted. The whole idea is that there are, it is estimated, a million old maps. There are also untold number of what I call historical maps, which is different. They're maps of history, not drawn at the time they're depicting. And these maps hold just an incredible wealth of information about the spatial organization of a region or of the world at a given time in history. It's been a gold mine for a very long time to facilitate digitization of boundaries and settlements from old maps. A lot of work has been done to digitize names of old maps and in that way create a place name index that would allow you to find maps that mention a particular name. But I'm interested in the geometry. What role can LLMs play in this process? Perhaps or even enlisting other libraries that are out there. People have been trying to do this for a very long time with limited success, at least in getting the quality of data that one would want.
+
+
+RESPONSE
+========
+Yes. And I think the technological situation has changed enough in the last couple of years that this is worth revisiting seriously. What you are describing is no longer primarily a “computer vision extracts lines from a scan” problem. It can be formulated as a collaborative system in which a vision-language model understands the cartographic problem, specialized vision models identify the graphical objects, conventional geometry software constructs valid vectors, and a human concentrates on ambiguous cases rather than tracing everything.
+
+The important distinction is that I would not ask the LLM itself to trace the boundary. LLM/VLM output coordinates are not metrically reliable enough for that. I would give it a role much closer to that of a GIS technician supervising a collection of specialized tools.
+
+A possible pipeline would look roughly like this:
+
+The system receives a high-resolution map, ideally already georeferenced, although georeferencing could itself be another stage.
+
+A VLM examines the map globally: title, legend, colors, line styles, political units, inset maps, neatline, graticule, labels, rivers, roads, etc. You could say, for example, “extract the boundaries of the political entities represented in red, but ignore province boundaries shown by dashed lines.”
+
+The VLM then creates prompts or training examples for a segmentation model. This is where something quite remarkable has happened. A paper published just this month, August 2026, describes SMOL-MapSeg, which uses what the authors call legend-oriented prompting: essentially, “here is the graphical symbol in the legend; find this class everywhere on the map.” That strikes me as extraordinarily relevant to your problem because it approximates what a human map reader actually does. 
+
+A segmentation model produces raster masks or boundary probability surfaces. SAM-derived systems are already being adapted specifically to historical maps. MapSAM, published in 2025, was designed to overcome the poor zero-shot performance of ordinary Segment Anything on historical cartography, and the authors demonstrated it on railways, vineyards, and building blocks using very small amounts of training data. 
+
+Geometry software converts the segmentation into vectors and enforces topology: snapping shared boundaries, eliminating tiny gaps and slivers, closing rings, resolving self-intersections, simplifying excessive vertices, identifying enclaves, etc. This is an area where conventional GIS algorithms remain much more appropriate than an LLM.
+
+The VLM performs a second interpretive pass. It can compare the resulting overlay with the original image and say, in effect, “this section crossed a text label and the extracted boundary has jumped to the coastline,” or “these two polygons should share the same boundary.” It can request re-segmentation of only that small region.
+
+The resulting polygons get geographic coordinates from the map transformation and can be emitted as GeoJSON, GeoPackage, PostGIS geometry, or whatever else you want.
+
+There is already research pointing directly toward the vector/topology part as well. Xia and colleagues published a 2024 approach specifically called “Vectorizing historical maps with topological consistency.” Instead of merely classifying pixels and then blindly polygonizing them, their system predicts contours assembled from geometric primitives and aims explicitly at producing simplified, nonintersecting polygon geometry. Their application was Sanborn building footprints rather than historical political boundaries, but the underlying problem—turning uncertain raster evidence into structurally valid polygon geometry—is very close to yours. 
+
+And there is an encouraging precedent for doing this at collection scale. mapKurator has already processed more than 60,000 historical maps and extracted more than 100 million textual labels, producing GeoJSON results. It is doing text rather than boundary geometry, but it demonstrates that a pipeline combining machine learning, very large images, postprocessing and GIS output is operationally feasible at archival scale. 
+ MapReader likewise provides an existing Python framework for breaking huge map scans into patches, annotating examples, training models, running them over collections and creating structured output. 
+
+What strikes me as particularly promising about the LLM/VLM contribution is that it could attack one of the things that has made this problem so resistant to conventional automation: cartographic heterogeneity.
+
+A computer-vision pipeline trained to recognize the borders on one nineteenth-century atlas may fail spectacularly on another atlas because the line weights, colors, hachures, engraving methods and printing quality differ. But a multimodal model can reason from the particular map in front of it. It can see that “this solid green line is apparently the international boundary, this finer dotted line is administrative, blue is hydrography, and the thick black line is the railroad.” SMOL-MapSeg's legend-oriented approach is essentially exploiting precisely this idea algorithmically. 
+
+There is another aspect I think is especially important for the corpus you have in mind. I wouldn't initially try to build a universal historical-boundary extractor. I would build a human-guided extraction agent.
+
+You open a map. You tell it, “These are the boundaries I'm interested in.” Perhaps you click three or four examples. The agent shows you an overlay. You correct two places. It reruns. Then it exports polygons with a confidence measure and perhaps marks twenty uncertain stretches of boundary for inspection.
+
+That changes the economics enormously.
+
+Suppose manual tracing takes an hour per map. An imperfect automatic method that requires forty minutes of cleanup isn't very interesting. But one that gets 95% of the geometry right and asks a knowledgeable person to adjudicate ten ambiguous locations might turn an hour into five minutes. At a million-map scale, that distinction is transformative.
+
+I would also preserve something that most GIS digitization workflows tend to throw away: provenance and uncertainty at the segment level. The product shouldn't merely be:
+
+POLYGON(...)
+
+It could retain something more like:
+
+geometry → source map → pixel coordinates → map coordinates → extraction model → confidence → corrections → operator → interpretation
+
+And particular arcs could carry lower confidence where, say, a label obscures the boundary. That would make this vastly more useful scholarly data than anonymously digitized polygons.
+
+There is one conceptual complication that I think becomes fascinating rather than troublesome in this context. A political region is not necessarily represented cartographically as a polygon. The map may show only some of its borders because a coastline supplies another boundary; two territories may share a single line; boundaries can disappear under type; colored washes may overlap; dashed boundaries may indicate uncertainty; the map may represent contested sovereignty through annotation rather than geometry. So the system has to understand cartographic semantics, not merely linework.
+
+And that is exactly where the VLM belongs.
+
+In fact, I would divide the problem into three intellectual layers:
+
+Seeing: Which pixels constitute the cartographic feature?
+
+Constructing: What geometrical/topological object do those pixels imply?
+
+Interpreting: What does that object mean on this particular map?
+
+Traditional computer vision has concentrated overwhelmingly on the first. GIS algorithms handle the second fairly well. The third has usually required a human. Multimodal LLMs suddenly give us a plausible computational participant in that third layer.
+
+So yes—I think an agent could be built now. And I suspect a proof of concept could be considerably smaller than one might initially imagine: perhaps 20–50 maps from two or three reasonably distinct historical atlases, extracting just one class such as first-order political boundaries, with a browser/QGIS-style interface for correction.
+
+The experiment I would most want to run is almost embarrassingly simple: take perhaps ten representative maps for which good hand-digitized boundary geometry already exists, and see how far one can get with VLM interpretation + MapSAM/SMOL-style segmentation + topology-aware polygonization + VLM-assisted QA, without training a large bespoke model.
+
+If that worked at all well, then I think you would have the beginnings of something quite important rather than merely another historical-map extraction experiment.
+
+
+PROMPT
+======
+I have a little app that I built a while back I called Draw. It's just something I use internally that would allow somebody to put one or more GeoTIFF files into a folder and have them queued up in a map interface that uses Leaflet Draw tools and recorded objects traced so people could trace lines and digitize points and lines and polygons and save them. And I use this tool to digitize features from the Bergel Atlas of Central Asia. With a tool like that, maybe I'm thinking in terms of enhancing it so that I set it up so that I can load any given IIIF map image, and I could have the user required to do an initial crude trace of the objects that they're interested in. Let's say it's a map of a region with three polities or three regions, sub-regions defined within it, and the user then makes, I don't know, 50 point entries to indicate this is the polygon I'm talking about, or I'm interested in, and give it a name, and then have a button that executes a call to a VLM that says, here's a map, here are 18 points that roughly indicate the boundary I'm interested in, estimate the actual boundary from pixels and generate some kind of vector object for it.
+
+
+RESPONSE
+========
+Yes. In fact, I think your existing Draw application is almost an ideal front end for this, and I would change one part of your formulation: I would not have the VLM itself estimate all the boundary coordinates. I would use the user’s crude geometry as a prompt to a segmentation/refinement model, with the VLM acting as interpreter and orchestrator.
+
+Your interaction could be very natural. The user loads a IIIF map, selects “polygon,” gives the feature a name, and traces a deliberately coarse polygon—perhaps 15, 30, or 50 vertices. That geometry says: “this is the region I mean.” The application then extracts a high-resolution IIIF image region surrounding that polygon, perhaps with a generous margin. You can also supply the crop to a VLM and ask it to characterize what seems to constitute the boundary: solid black rule, color transition, dotted line, river boundary, coastline, etc. But the actual pixel-to-boundary operation would then be handed to something like SAM2, MapSAM, or a descendant designed for interactive segmentation.
+
+This is remarkably close to what these systems are already set up to do. SAM2 accepts point, box, and mask prompts and permits subsequent refinement; there are geospatial implementations that already take point prompts and return masks. 
+ There is also now research specifically on improving the detailed boundary result after interactive prompting—SAM-REF, for example, is explicitly designed to refine segmentation around the prompted region without repeatedly recomputing the whole image representation. 
+
+And for your domain, the development I mentioned before becomes even more interesting. MapSAM shows that ordinary zero-shot SAM has trouble with historical map symbology but that very limited domain adaptation can improve it considerably—even with on the order of ten annotated examples. 
+ The brand-new SMOL-MapSeg goes one step further conceptually: instead of defining a permanent semantic class such as “road” or “boundary,” you show it what the desired graphical class looks like on this particular map and ask it to find that pattern. 
+
+So I could imagine Draw behaving something like this.
+
+The user crudely digitizes:
+
+Bactria → rough polygon.
+
+You already know the polygon coordinates in Leaflet/map coordinates. Because the IIIF image has a known image-coordinate system, Draw translates that polygon back into IIIF pixel coordinates and asks the server for, say, a 4000×4000-pixel crop around it.
+
+From that crude polygon you can generate several kinds of prompts automatically. Points comfortably inside the polygon become positive SAM prompts. Points slightly outside become negative prompts. The polygon's bounding box becomes a box prompt. Potentially, the entire crude polygon can be rasterized as a coarse mask prompt.
+
+That is actually considerably richer information than asking the user to click 50 times near the boundary.
+
+Then the segmentation model returns a high-resolution mask. You polygonize that mask using ordinary tooling—GDAL/rasterio, OpenCV, scikit-image, Shapely—and put the result immediately over the original map in Leaflet.
+
+At that moment the user sees:
+
+original rough polygon
+→ machine-refined polygon.
+
+And I would make that refinement interactive rather than treating the first result as final. The user could click somewhere and say, effectively, “wrong here.” A positive click says “include this”; a negative one says “exclude this.” SAM2 is explicitly built around iterative prompting of that sort. 
+
+That begins to resemble Photoshop's intelligent selection tools, except that the object is a historical geographic feature and the output is actual GIS geometry.
+
+There is an important wrinkle with political boundaries, though. A polity isn't necessarily recognizable as a filled graphical region. If the map uses colored territorial fills, you're in excellent shape: this is basically image segmentation. Geological-map extraction research has already demonstrated prompt-driven extraction of irregular polygon regions from historical scans and subsequent vectorization. 
+
+If the territory is represented only by a thin boundary line, however, I would treat the problem slightly differently. You want the system to follow a curvilinear graphical feature rather than segment an area. Your crude polygon then tells it approximately where the desired line must lie, and you can use classical image analysis inside a narrow corridor around that line: edge detection, ridge detection, color-distance measures, skeletonization, graph search, and ultimately something like shortest-path optimization through a probability surface.
+
+That might actually outperform a gigantic neural model.
+
+Suppose the user's rough boundary is 20 pixels away from the actual printed line on average. Buffer the crude vector by, say, ±100 pixels. Within that strip, calculate a probability that each pixel belongs to the relevant border. Then find a continuous path through the corridor maximizing that probability. Suddenly the search problem has gone from:
+
+“Find the frontier of Bactria somewhere on this enormous map”
+
+to:
+
+“Find the most plausible cartographic line in this 200-pixel-wide ribbon.”
+
+That's an enormous reduction in ambiguity.
+
+And this is where I think the VLM becomes genuinely useful rather than decorative. Before doing that optimization you could give it several representative crops and ask: what visually distinguishes the wanted boundary? Maybe it answers effectively:
+
+solid reddish line, roughly 3 pixels wide; ignore thin black hydrography and dashed administrative lines.
+
+You don't necessarily take its verbal description literally. It can select representative image patches or pixels, and those can initialize the conventional vision algorithm.
+
+I would therefore architect the feature as something like:
+
+rough human geometry → spatial constraint → visual-class identification → pixel segmentation/tracing → topology/vectorization → human correction.
+
+The VLM occupies primarily the “visual-class identification” and recovery/error-handling portions. The numerical tracing belongs elsewhere.
+
+One additional design choice seems very valuable given IIIF. Don't download or process the entire enormous image. Your Draw client already knows the user's viewport and rough geometry. Use IIIF region requests to obtain exactly the resolution and bounding rectangle needed for refinement. You could even progressively refine. First run at perhaps 1500 pixels across to understand the feature; then fetch narrow high-resolution strips around the predicted boundary and refine those sections at native scan resolution.
+
+That could make the thing surprisingly lightweight.
+
+I also would not initially build a “skill” in the ChatGPT sense. I'd build a small service behind Draw. Something like:
+
+POST /refine-geometry
+
+receiving:
+
+{
+  "iiif_manifest": "...",
+  "rough_geometry": {...},
+  "feature_type": "polity",
+  "geometry_type": "polygon",
+  "label": "Bactria"
+}
+and returning:
+
+{
+  "geometry": {...},
+  "confidence": 0.91,
+  "uncertain_segments": [...]
+}
+The service can itself call a VLM when necessary and run local segmentation/CV models. That leaves Draw independent of whichever particular model happens to be fashionable.
+
+And the thing I would regard as the killer interface feature is uncertain-segment highlighting. Don't merely return a polygon. Return a line in which perhaps 85% is shown as confidently followed and four small sections are flagged for human inspection. That would turn the user's job from digitization into adjudication.
+
+Given the kind of Bergel Atlas work you're describing, I think I would now be quite interested in actually prototyping this. You already possess two unusually valuable ingredients: the interface and a corpus of boundaries that you previously digitized manually. The latter could serve as ground truth, which means you wouldn't have to argue impressionistically about whether it “looks pretty good.” You could hide the finished vector from the algorithm, give it a deliberately degraded version of your trace, and measure how closely it reconstructs the geometry you originally digitized.
+
+
+PROMPT
+======
+I once wrote a grant for $1.3 million to the NSF to do exactly what I'm describing here: develop a system for getting information off old maps. I was at Stanford, and I engaged a number of people from different parts of the organization to co-author parts of the grant. It was received pretty well. It got high marks, but not high enough. The reviewers, you know, I had a reviewer number two problem who really misunderstood the overall goal, just due to some semantics. But anyway, it's been a long-standing interest, and I watched with great interest when the map curator project and the integration with the David Rumsey Map Collection was all happening. I know the people involved, many of the people involved, including David Rumsey and including many of the players in that whole effort out of Minnesota computer science. And I also know Bert Spaan, who has been working on something called All Maps for quite some time, and I also know Rainer Simon from Vienna, who has developed tools like Annotorious, which allows for digitizing areas of IIIF images. It's typically the intent there was not maps specifically, but allowing for tracing and snapping to edges of things and that sort of thing. So I think as a start to all of this, I'd probably want to investigate what's out there with respect to the technology of old maps and Annotorious specifically. When I get to the details of computer vision and segmentation, I don't know that field. I'm not a computer scientist. But I think I can wrangle an LLM or a VLM to orchestrate the series of tests that are necessary, and I can certainly coordinate the refinement of my Draw application to suit this.
+
+…
+
+
+RESPONSE
+========
+Given that background, I think you're in an unusually good position to revisit the problem now. The research question hasn't really changed since your NSF proposal; the available machinery has. And your instinct about where to begin seems right: before writing anything substantial, establish what the historical-map/IIIF ecosystem can already supply and identify the genuinely missing piece.
+
+I did a quick check of the current landscape, and there's a useful convergence happening. Allmaps Editor already gives you an IIIF-first georeferencing environment whose results can be consumed in Leaflet, MapLibre, OpenLayers, and QGIS. Allmaps now describes itself more broadly as an ecosystem for annotating IIIF maps with geospatial information, with standardized Georeference Annotations rather than creation of derivative images. 
+ That means I would be reluctant to make Draw responsible for georeferencing at all. Let Allmaps solve that layer and have Draw consume the transformation.
+
+More interestingly, the historical-map segmentation field has moved directly toward the problem you're contemplating. MapSAM was published in April 2025 specifically because vanilla SAM performs badly enough on historical cartography that domain adaptation is necessary. It handles railways, vineyards, and building blocks, and the authors report useful adaptation with as few as ten training examples. Its code is public. 
+ And there is now MapSAM2, which extends this into SAM2 and exploits relationships among map tiles and historical-map time series.
+
+The paper that I'd read first, though, is the one that appeared just two weeks ago: SMOL-MapSeg. Its central idea is legend-oriented prompting. Instead of assuming that “political boundary” has one visual manifestation across historical cartography, it supplies class-specific image/label examples as prompts. The authors explicitly frame historical-map variability as the fundamental problem and report substantially better few-shot behavior than generic SAM. 
+ That is conceptually awfully close to what you're proposing, even though your human-drawn approximate geometry provides another very powerful kind of prompt.
+
+There is also a separate 2024 paper worth reading because it attacks the other half of your problem: Vectorizing historical maps with topological consistency. Rather than doing segmentation and then treating raster-to-vector conversion as an afterthought, it predicts ordered geometric primitives forming closed polygons and evaluates the resulting vector structure. That distinction matters enormously for your application: a visually impressive segmentation isn't necessarily usable historical geodata. 
+
+I haven't yet found the current Annotorious work you remember involving snapping/tracing sufficiently well in that first search, and I wouldn't want to bluff about its present capabilities. I'd investigate that separately, including its plugin/API architecture rather than just the current demo. Annotorious could conceivably supply much of the image-space annotation interaction you need, leaving Draw primarily responsible for the geographic side.
+
+What I now find especially attractive is that you don't actually have to understand modern segmentation research well enough to implement it yourself. You need to understand it well enough to design experiments and recognize failure. An agent working with Python can clone MapSAM/MapSAM2 implementations, install models, prepare IIIF crops, transform your existing hand-digitized polygons into test prompts, run alternative segmentation approaches, compute IoU/Hausdorff/boundary-distance measures, and generate overlays for you to inspect. That's almost an ideal use of a coding agent: the agent handles unfamiliar ML plumbing while you determine whether the resulting geometry has any cartographic validity.
+
+And I'd resist designing the eventual architecture just yet. I think there is a much cheaper preliminary investigation:
+
+Take one Bergel map and one boundary you have already digitized. Hide your finished geometry. Create a deliberately crude approximation of it—perhaps Douglas-Peucker simplify it brutally until 200 vertices become 15 or 20. Use that as the prompt. Then try three or four contemporary approaches to recover the original boundary from the image. Finally compare each result with your original digitization both computationally and visually.
+
+That little experiment answers the crucial question: does the current generation of segmentation technology contain enough signal to make this worth pursuing?
+
+If the answer is yes, you have an excellent benchmark corpus almost accidentally: all the work you've already done with Draw. You can generate hundreds of artificial “human rough traces” from your carefully digitized geometries at different degrees of simplification and displacement and objectively measure how much of the original geometry various methods recover. That could become not merely development data but an interesting research dataset in its own right.
+
+And there's a pleasing historical symmetry here. MapKurator and the Rumsey work attacked the textual content of maps at enormous scale; Rumsey now advertises a collection of more than 150,000 online map images and text-on-map search. 
+ What you're contemplating attacks the other great information-bearing component of maps: their geometry. The combination—what was it called, where was it, and what spatial extent did the mapmaker assign to it?—gets considerably closer to turning a map collection into historical geographic data rather than merely a searchable image collection.
+
+I'd make the next step a fairly serious technology survey rather than coding. In particular, I'd investigate Annotorious/IIIF annotation, Allmaps and its annotation model, MapSAM/MapSAM2, SMOL-MapSeg, vector/topology approaches, and any other current historical-map segmentation projects, specifically through the lens of your “rough human geometry → refined vector geometry” use case. That would tell us what pieces already exist and, more importantly, whether anyone is already doing precisely the thing you're proposing.
+
+This is also a topic where developments are moving quickly enough that periodic checking could be useful.
+
+
+PROMPT
+======
+I think one way that this whole effort has gone wrong, well, there are a couple things that, as I've observed the work being done on this, because I've been occupied with other things, and I only built the draw application because I needed it. It's Bruegel, by the way, B-R-E-G-E-L, and I don't know that I have polygons, except for I did trace around certain labels to create polygons, but the Bruegel Atlas itself doesn't draw boundaries on things. It has point locations and labels of various size to gesture at what regions there were, tribal regions and so on and so forth. So the Bruegel Atlas was not the greatest example. I do have to hand, however, the Cleopatra data set from Seshat; however, I don't have the original maps that those were traced from. It's possible that that information exists, because I do know at least one of the people who was involved in creating the Cleopatra data set, and so I could engage with her. I like the idea of sort of taking well-drawn boundaries and then reducing them to just a handful of points and then testing this system by asking it to recreate the initial boundary. That seems very promising. But the point I was going to make is that I think that the goal for people has been to do something that is entirely automated, that is give a system a file name and have it spit out all the names on it, that sort of thing. And I have the output from that map curator work, and it is the dirtiest data you could possibly imagine. But within all that dirty data, there's recognizable toponyms, and there was enough of them that they could do something with it. Very, very crude. And the goal has always been to automate it completely, but I don't think that's really possible yet. And so I have imagined organizing mapathons with people use the same interface in a sort of shared environment to tackle different maps, or, I don't know, just a workflow that involves multiple people working on the twelve maps for the region Galicia in Eastern Europe, for example. That's kind of what I had in mind, and there are some steps that a human has to do and buttons to click and maybe some clicks on maps to make. So I don't ever see it being a completely automated workflow.
+
+
+RESPONSE
+========
+Yes. And I think that changes the formulation of the project in an important way. Also: Bruegel, duly corrected.
+
+The longstanding aspiration has often been map → machine → structured data. That naturally makes benchmark performance revolve around precision, recall, OCR accuracy, segmentation IoU, and eventually the fantasy of feeding a million maps through a pipeline. But for historical cartography, the underlying document frequently doesn't contain sufficiently explicit or standardized information for that to be the right objective. The machine is being asked not merely to recognize marks but to decide what those marks mean.
+
+What you're describing instead is closer to machine-assisted scholarly digitization. The unit of optimization isn't “percentage of the map extracted automatically.” It's something more practical: How many minutes of knowledgeable human attention are required to produce trustworthy data from this map?
+
+That strikes me as a substantially better research question.
+
+If tracing a polity boundary manually takes 20 minutes, and an operator can sketch twelve approximate vertices in 45 seconds, click “refine,” inspect the result, correct two questionable sections, and accept it in another two minutes, then you've achieved something enormously valuable—even though the process is emphatically not automated.
+
+And it has another advantage: the human provides precisely the information that machine vision finds expensive to infer. Consider the amount of semantic information contained in a crude polygon accompanied by:
+
+Galicia, political region, boundary shown by red dashed line.
+
+The human has already solved feature identification, disambiguation, approximate location, feature type, and usually the relevant cartographic symbology. The computational problem has collapsed into a much narrower one: given this approximate geometry and this visual evidence, fit the geometry accurately to the map.
+
+That seems much more tractable.
+
+The mapathon idea then becomes more interesting, because you could design the workflow around progressive human commitment. There needn't even be one universal interaction. A worker might encounter a feature and:
+
+identify/name it;
+roughly encircle or trace it;
+ask for refinement;
+accept the result, correct it, or flag it;
+move on.
+A difficult feature might take five minutes. An obvious color-bounded territory might take twenty seconds. The software can concentrate computational effort where the operator asks for it.
+
+More importantly, different people needn't perform identical jobs. Someone familiar with the historical geography could identify the intended entities and ambiguous boundaries. Less specialized participants could validate geometry. Particularly difficult cases could be escalated. That starts looking less like crowdsourced tracing and more like a lightweight editorial workflow.
+
+There is a precedent from another field that I think is conceptually useful: human-in-the-loop transcription. Once handwriting recognition became reasonably good, the useful question ceased to be “Can the machine transcribe this manuscript perfectly?” A more productive question became “Can the machine propose a transcription quickly enough that correcting it is substantially cheaper than producing one?” Your geometry problem has almost exactly that structure.
+
+And your proposed experiment becomes better when considered from that perspective. You don't merely test:
+
+ground truth → degraded polygon → algorithm → reconstructed polygon
+
+and measure geometric error.
+
+You can simulate different amounts of human effort. Give the algorithm 5 points, 10 points, 20 points, 40 points. Perhaps introduce deliberate positional error—±10, ±25, ±50 pixels. Measure the recovered boundary against ground truth.
+
+Then you get a much more revealing curve:
+
+human input effort → resulting geometric accuracy.
+
+There might be a striking knee in that curve. Perhaps eight crude points gets 80%; fifteen gets 95%; thirty gets 96%. If so, you've discovered something directly relevant to interface design: don't ask the operator for thirty points.
+
+Likewise, you can measure correction. After the initial result, provide one additional positive/negative click near the worst error. How much does accuracy improve? Then another. You're essentially measuring marginal return on human interaction.
+
+That feels to me like the appropriate evaluation framework for the whole idea—not “did AI successfully digitize the map?”
+
+And this also addresses your experience with MapKurator. At collection scale, extremely dirty extraction can still be useful for discovery: if enough recognizable toponyms survive, you can build search over them. But geometry has a rather different failure characteristic. A garbage OCR token among 50 million tokens isn't terribly consequential. A polygon whose eastern boundary silently follows the wrong river for 80 km can become a scholarly assertion once somebody puts it into a historical GIS.
+
+So I'd want the philosophy of your system almost reversed:
+
+The computer proposes; the human commits.
+
+Nothing becomes authoritative geometry merely because the model produced it.
+
+That also suggests preserving the interaction history. The finished polygon could know that it began as 11 manually supplied points, was refined by model X, had three sections manually altered, and was finally accepted by researcher Y. That's useful provenance rather than merely software telemetry.
+
+The Cleopatra possibility sounds especially interesting, although the missing source maps are decisive. If the original map images from which those polygons were digitized can be recovered—and particularly if there are enough of them—you suddenly have exactly the experimental pairing needed: historical raster + carefully digitized geometry. You don't initially need thousands. A few dozen genuinely representative map/polygon pairs would tell you an enormous amount.
+
+And I wouldn't worry much yet about whether those eventually become training data. Initially they're evaluation data. That's more important. You can throw SAM2, MapSAM, classical edge-following, VLM-guided approaches, and hybrids at exactly the same degraded traces and find out what actually works.
+
+There may ultimately be a nice conceptual inversion of the million-map ambition here. The million maps don't need to be automatically digitized. They need to become digitizable at dramatically reduced human cost. If knowledgeable people, students, mapathon participants, or interested volunteers can collectively turn ten minutes of attention into a trustworthy feature that formerly required an hour, the scale of what becomes feasible changes anyway.
+
+And unlike a completely automatic system, it produces something I'd be much more willing to put into a historical gazetteer or spatial knowledge base and call data.
+
+
+PROMPT
+======
+One more thing I'll note here, although this conversation is liable to go on for a while, but I've noticed recently on my phone and in my Apple computer devices, my MacBook and my iPhone, that if I press and hold someplace on a photograph for a moment, it performs an almost instant segmentation analysis of what is the object that I'm pressing on. That capability seems to me just extraordinary, and perhaps naively I think that it may have something to do with this whole topic of historical maps.
+
+Yes. That's a very pertinent observation, and it isn't naïve at all. What Apple has made feel almost trivial in the interface is closely related to the technical problem we're discussing.
+
+When you press and hold on a subject in an iPhone photograph, the system is doing interactive object segmentation: your touch supplies an extraordinarily weak prompt—essentially “the thing here”—and the vision system determines which surrounding pixels belong to the same object. Apple calls the user-facing capability “Lift subject from the photo background.” Apple's description of Lift Subject
+
+
+
+RESPONSE
+========
+Conceptually, that's strikingly close to your proposed interaction with Draw:
+
+Apple: “I touched this thing. Determine its precise extent.”
+
+Draw: “I roughly traced this thing. Determine its precise extent.”
+
+In fact, you're potentially giving the algorithm vastly more information than the iPhone user does. A single touch says very little. Your rough polygon says “the object I'm interested in is approximately this shape, occupies this region, and its boundary should be somewhere near this path.”
+
+The crucial difference is the nature of the imagery. Apple's models have been trained to exploit the visual regularities of photographs. A dog against a carpet has texture, color, depth cues, recognizable anatomy, occlusion relationships, and so forth. A political territory on an 1890 lithographed map isn't an “object” in anything like the same visual sense. Its boundary might consist of a 1-pixel engraved line that disappears beneath the letters GALICIA, coincides for a while with a river, changes appearance because two colored washes meet, and vanishes completely for a few millimeters because of damage to the sheet.
+
+But that difference actually reinforces your human-in-the-loop idea rather than undermining it. The remarkable lesson of the Apple interaction isn't “segmentation has been solved.” It's that very small amounts of human input can dramatically constrain a sophisticated vision problem.
+
+And there's an interface-design lesson there that I hadn't quite appreciated until you brought this up. Perhaps you don't even want to require the user to crudely trace the whole polygon initially.
+
+Imagine clicking inside a colored historical region.
+
+The system immediately proposes an extent, Apple-style. If it's right: accept.
+
+If it leaks into the neighboring polity, click there: “not this.”
+
+If it missed an enclave: click inside the enclave: “include this.”
+
+If segmentation simply can't figure it out, then Draw asks you to sketch an approximate boundary.
+
+That gives you a hierarchy of human effort rather than always demanding 20 points:
+
+click → inspect → correct with clicks → rough trace → manual editing
+
+The easy cartographic objects become almost instantaneous. Human labor gets progressively introduced only as the visual ambiguity increases.
+
+And that is essentially the interaction model behind Meta's Segment Anything work. SAM was specifically designed around prompts—points, boxes, masks—rather than requiring the user to manually delineate an object. SAM 2 continues that paradigm and is explicitly capable of refining a segmentation through additional prompts. Meta Segment Anything 2 research page
+
+There is another implication that I think matters a great deal for your project. The interface itself may be as important a research contribution as the segmentation model. You probably don't need to invent a dramatically better computer-vision model. There are people whose entire careers are devoted to that problem. What seems much less developed is figuring out the optimal interaction between a historian/geographer looking at a map and these increasingly capable segmentation models.
+
+Your Draw application could essentially become an experimental workbench for answering that question: What is the minimum human gesture necessary to turn a historical cartographic representation into trustworthy geometry?
+
+That is a rather different—and, to me, considerably more interesting—problem than “use AI to vectorize old maps.”
+
+
+
