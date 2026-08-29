@@ -5,6 +5,10 @@ A fresh, independent Django project — **not** a migration of its predecessor. 
 it is the spec, and this file is only a pointer to it and to a few facts the scoping doc doesn't
 cover (repo/environment provenance, sibling-project boundaries, naming gotchas).
 
+Per-session activity logs live in `logs/session_log_YYYYMMDD.md` — narrative notes on what
+changed and *why*, plus gotchas and follow-ups. Worth reading when picking up prior work, and
+worth appending to at the end of a working session. Keep the detail there, not here.
+
 ## Provenance
 
 Cloned from `../lpdraw` (itself formerly "whgdraw" / "linkedplaces.draw", a 2020-era proof of

@@ -4,6 +4,7 @@ _older/
 _scratch/
 media/
 tiles/
+logs/
 
 .DS_Store
 *.wp*
