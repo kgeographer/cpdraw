@@ -95,8 +95,6 @@ clean manifest first.
 
 ## Ground-truth experiment (independent of CPDraw's build — can run any time)
 
-`lpdraw` has real hand-digitized polygons and linestrings, with rectified tiles already live:
-`bregel_37` (45 polygons) and `bregel_39` (99 linestrings), served at
-`draw.computingplace.org/tiles/bregel/...`. Useful for testing degrade-and-reconstruct
-segmentation approaches per `docs/GPT_20260828.txt`, without needing any CPDraw code to exist
-first.
+The `lpdraw` Bregel geometries (`bregel_37`, `bregel_39`) are a ready-made degrade-and-
+reconstruct evaluation corpus, runnable without any CPDraw code. Spec is in the scoping doc,
+§10 Phase 3 "Evaluation corpus"; framing in `docs/GPT_20260828.txt` (the "Draw2" track).
