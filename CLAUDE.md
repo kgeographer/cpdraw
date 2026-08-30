@@ -97,4 +97,6 @@ clean manifest first.
 
 The `lpdraw` Bregel geometries (`bregel_37`, `bregel_39`) are a ready-made degrade-and-
 reconstruct evaluation corpus, runnable without any CPDraw code. Spec is in the scoping doc,
-§10 Phase 3 "Evaluation corpus"; framing in `docs/GPT_20260828.txt` (the "Draw2" track).
+§10 Phase 3 "Evaluation corpus"; framing in `docs/GPT_20260828.txt`. `docs/guided-extraction.md`
+writes up the semi-automated "few guide points → traced boundary" branch this eval is for,
+and how to evaluate it; `notebooks/` holds the work (own venv, the "Draw2" track).
