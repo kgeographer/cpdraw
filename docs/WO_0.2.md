@@ -12,18 +12,22 @@ anything georeferencing (Phase 1).
 
 ---
 
-## 1. Open decisions (need Karl)
+## 1. Decisions
 
-1. **IIIF parsing — Python or Node?** §8 names `@allmaps/iiif-parser` "wrapped in the
-   normalization layer," but that library is JS and Django is Python. Options:
-   - **(a) Parse in Python.** Roll a tolerant parser (needs are modest: label, metadata
-     array, rights/attribution, navDate, canvas list, each canvas's image service +
-     width/height). Keeps Node scoped to the frontend build + the later Allmaps CLI.
-   - **(b) Shell out to Node at ingest.** Reuse `@allmaps/iiif-parser` exactly, but now
-     Django depends on a Node subprocess for a core write path. Pulls Open Question 3
-     (Node in the deployment) forward from Phase 1.
-   - Leaning (a) for Phase 0 — the malformed-manifest handling (§6a) is custom work either
-     way, and a small Python parser is easy to unit-test against the Polona document.
+1. **IIIF parsing — Python. Decided 2026-08-29.** §8 names `@allmaps/iiif-parser`
+   "wrapped in the normalization layer," but that library is JS, Django is Python, and it
+   is a *strict* parser that rejects the Phase 0 target manifest outright (§6a). Parsing
+   happens once per source ingest — not hot-path, not compute-heavy — and the
+   tolerant/quirks/degradation layer (§6a) is custom work in either language, so Node buys
+   little here. Going Python keeps runtime Node out of Django's request path until Phase 1,
+   where the Django→Node junction gets a deliberate design for `@allmaps/cli` (subprocess
+   vs. supervised sidecar). Implementation note: put it behind one internal entry point
+   (`parse_manifest(raw_json) -> SourceData`) so a Node parse step can be swapped in later
+   without touching callers. Runtime Node stays a Phase 1 question (scoping-doc Open
+   Question 3).
+
+## 1a. Still open (need Karl)
+
 2. **Project creation — capture spatial scope + placetype vocab now, or stub?** §3 attaches
    both to `Project`. Neither is *used* until Phase 1 (gazetteer lookup) / WO-0.4
    (annotation typing). Proposal: add the fields now, make them optional in the create
