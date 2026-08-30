@@ -261,9 +261,22 @@ Licensing: Allmaps packages MIT, apps GPL-3.0, published data CC0.
 
 ## 9. Open questions
 
-1. **Annotorious scope.** Not a build-or-buy decision — adopted. The spike establishes what the
-   drawing tools cover, how the OpenSeadragon connector behaves, and where custom geometry
-   capture (the label linestring) needs work. Gaps become feature conversations with Rainer.
+1. **Annotorious scope — resolved (2026-08-29).** Polygon and rectangle ship in the base
+   package. **Polyline (open, straight or bezier) ships in `@annotorious/plugin-tools`** and
+   works through the OpenSeadragon connector via `mountPlugin(anno)` — no CPDraw code, no
+   fork; `mountPlugin` only calls the public `registerDrawingTool` / `registerShapeEditor`.
+   The `path` tool is `ShapeType.POLYLINE`; it serialises as a W3C `SvgSelector` `<path>`
+   (open, no `Z`) and round-trips. This covers every Phase 0 geometry, the label linestring
+   included. The plugin's peer deps (`@annotorious/{annotorious,openseadragon}@^3.7.22`) and
+   its Svelte 4 / Vite 5 build line both match what WO-0.1 pinned.
+   **Point has no implementation on any release.** PR `annotorious/annotorious#443` built a
+   full one (concrete `Point` ShapeType, OSD coverage, W3C serialisation, tests) but it was
+   merged only to a feature branch that has since been deleted; Rainer intends to revise and
+   land it but has had no driving use case. CPDraw is that use case — point becomes an
+   upstream contribution, gated on Rainer's design call (a real `Point` type, confirmed by
+   email; not the ellipse-as-point workaround). Tracked in Phase 1, off the Phase 0 path.
+   See `docs/annotorious_check_findings.md` (now partly superseded) and the 2026-08-29
+   session log for the full dig.
 2. **Fork or fresh.** The model changes touch nearly every table. A fresh Django project reusing
    the LPF export logic and the AAT placetype scoping may be cleaner than migrating.
 3. **Node in the deployment.** The CLI means Node alongside Django. Subprocess invocation vs. a
@@ -291,8 +304,9 @@ Minimum viable. No georeferencing at all.
   accept Manifest or Image URI; populate metadata. The Polona manifest exercises the failure
   branch immediately, which makes it a better first test case than a clean one.
 - **WO-0.3** — Draw tab: OpenSeadragon renders the target map unrectified
-- **WO-0.4** — Annotorious spike, then annotation capture (point, linestring, polygon) with
-  name and type; persist image coordinates
+- **WO-0.4** — Annotorious + `@annotorious/plugin-tools` wired in; annotation capture
+  (**linestring and polygon** — point is deferred, see §9.1) with name and type; persist
+  image coordinates
 - **WO-0.5** — Existing auth, project, and map-list views wired through
 
 **Target map:** Miczyński, *Galicyja i Lodomeryja*, Rzeszów 1872, Biblioteka Narodowa via Polona.
@@ -300,14 +314,20 @@ Image service `https://polona.pl/iiif/3/cf2d49d7-1d3a-448d-abb2-190d6bd01af8` �
 ImageService3 level 2. Second canvas is a blank verso; ignore it. Verify `info.json` resolves
 and that the image server sends CORS headers before building on it.
 
-Outcome: login → project → Galicia map in the CPDraw interface → border and settlements traced
-and saved.
+Outcome: login → project → Galicia map in the CPDraw interface → border and label extents
+traced and saved.
 
 ### Phase 1 — Georeferencing loop
 
 Reconciliation against WHG within project spatial scope, control-point confirmation UI,
 Georeference Annotation emission, transform via Allmaps CLI, residuals, derived geometry,
 LPF export.
+
+**Point-tool track (parallel, unscheduled).** Point capture is the georeferencing substrate,
+and Annotorious has no point tool on any release (§9.1). Work with Rainer to revise and merge
+`annotorious/annotorious#443` or a successor; contribute the revision if that unblocks it
+sooner. Gated on his availability and design call, not CPDraw's schedule. Until it lands,
+the reconciliation UI can be prototyped against points placed by any interim mechanism.
 
 ### Phase 2 — Multi-user workflow, distortion analysis, warped-source QA overlay, Allmaps publication
 
@@ -317,3 +337,14 @@ Model-proposed annotations for human review. The Draw tab becomes a review tool 
 tracing tool. The image-space-canonical architecture makes this a UI change rather than a
 rewrite: a model proposing annotations in pixel coordinates proposes exactly what a human
 annotator produces.
+
+**Evaluation corpus.** The predecessor's manually digitized Bregel Atlas geometries are a
+ready-made ground truth — `bregel_37` (45 polygons) and `bregel_39` (99 linestrings), with
+rectified tiles live at `draw.computingplace.org/tiles/bregel/…`. The evaluation is
+degrade-and-reconstruct, not "did the machine digitize the map?": hide the finished vector,
+hand the method a deliberately degraded trace (N points; ±M px positional error), and measure
+recovery against the original. The same degraded inputs go to every approach tried
+(SAM2 / MapSAM / classical edge-following / VLM-guided / hybrid), so the comparison is
+objective. Evaluation data first; training data only much later. This corpus can be assembled
+and run independently of the CPDraw build, at any time — see `docs/GPT_20260828.txt` for the
+framing (and the "Draw2" experimental track kept separate from the v1 app).
