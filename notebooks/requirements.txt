@@ -1,0 +1,8 @@
+# Draw2 eval-track deps. Install into the project .venv (not a separate one):
+#   .venv/bin/pip install -r notebooks/requirements.txt
+# Kept separate from the repo-root requirements.txt so they don't reach prod.
+jupyterlab
+shapely
+numpy
+matplotlib
+pyproj
