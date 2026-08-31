@@ -1,15 +1,13 @@
-<!-- main/project.html -->
+<!-- main/project_update.html -->
 {% extends "main/base.html" %}
-{% load leaflet_tags %}
 {% load fontawesome_5 %}
 {% load static %}
-{% block title %}<title>whg.draw</title>{% endblock %}
+{% block title %}<title>CPDraw</title>{% endblock %}
 {% block extra_head %}
 {% endblock %}
 {% block content %}
 <div class="container">
   <h4 class="text-warning mt-3">project detail</h4>
-  {{ context }}
   <div class="row">
     <div class="pt-3 col-sm-6">
       <form method="post">{% csrf_token %}
@@ -19,17 +17,9 @@
       </form>
     </div>
     <div class="col-sm-6">
-    <h5>Maps <small><a href="{% url 'map-create' project_id %}" class="ml-5">
-          {% fa5_icon 'plus' 'fas' %} add new</a></small></h5>
-    <ul>
-      {% for m in maps %}
-        <li><a href="{% url 'map-update' m.id %}">{{m.title}}</a> ({{m.label}})</li>
-      {% endfor %}
-    </ul>
-    <div>
+      {# WO-0.2: the per-project Maps list is rebuilt as a Sources list with #}
+      {# the ingest flow. #}
+    </div>
   </div>
 </div>
-<script type="text/javascript">
-
-</script>
 {% endblock %}
