@@ -169,12 +169,12 @@ Everything in the inherited tree that assumes Leaflet / the tile-pyramid model:
 - `django-leaflet` in `INSTALLED_APPS` (and any `LEAFLET_CONFIG`)
 - `main/templates/main/draw.html` — the Leaflet + Mapbox-Draw page (replaced by the
   OpenSeadragon Draw page, WO-0.3)
-- `whgdraw/static/js/leaflet*`, `leaflet-draw/`, `leaflet-image.js`, `easyprint.js`,
+- `cpdraw/static/js/leaflet*`, `leaflet-draw/`, `leaflet-image.js`, `easyprint.js`,
   `leaflet.ajax.min.js`, `spin.umd.js`, the `tags/` bootstrap-tagsinput bundle if only the
   Draw page used it
 - `DrawView` injecting `mapbox_token_mb` / `mapbox_token_kg` into context; the
   `MAPBOX_TOKEN_*` settings and their `local_settings.py` values
-- `whgdraw/urls.py`: the `if settings.DEBUG: urlpatterns += static(TILES_URL, ...)` block;
+- `cpdraw/urls.py`: the `if settings.DEBUG: urlpatterns += static(TILES_URL, ...)` block;
   `TILES_URL` / `TILES_ROOT` in settings
 - `main/urls.py`: the `feature_*` routes and `DrawView` / `draw` view — replaced by the new
   Source/MapImage views

@@ -52,7 +52,7 @@ pnpm approve-builds   # re-run if a dependency bump adds a new install script
 
 ## How it reaches the browser (django-vite)
 
-`whgdraw/settings.py` has a `DJANGO_VITE` block; `django_vite` is in
+`cpdraw/settings.py` has a `DJANGO_VITE` block; `django_vite` is in
 `INSTALLED_APPS`. Templates load assets with:
 
 ```django

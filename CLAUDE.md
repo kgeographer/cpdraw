@@ -30,7 +30,7 @@ reusing something.
 ## Environment (already set up)
 
 - `.venv/` — dedicated venv for this project, `requirements.txt` already installed into it.
-- `.env` / `whgdraw/local_settings.py` — already populated (gitignored, not committed): a fresh
+- `.env` / `cpdraw/local_settings.py` — already populated (gitignored, not committed): a fresh
   `SECRET_KEY` generated for this project, local Postgres connection. Mapbox tokens
   intentionally omitted — the inherited Leaflet/Mapbox Draw view is legacy code CPDraw's
   OpenSeadragon-based viewer replaces, not something to fix up.
@@ -46,7 +46,7 @@ explicit about which one is meant.
 ## Frontend build (WO-0.1 — done)
 
 `frontend/` is a Vite project (see `frontend/README.md` for the full picture). Bridged into
-Django templates by **django-vite** — `DJANGO_VITE` block in `whgdraw/settings.py`, tags in
+Django templates by **django-vite** — `DJANGO_VITE` block in `cpdraw/settings.py`, tags in
 templates. Toolchain deliberately pinned to **Node 22 / Vite 5 / Svelte 4** to match
 Annotorious v3.8.9's runtime (the point/polyline plugin in WO-0.4 compiles against it) — do
 not bump ahead of Annotorious.
