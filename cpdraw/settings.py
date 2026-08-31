@@ -223,3 +223,7 @@ DJANGO_VITE = {
         ),
     }
 }
+
+# Map the ERROR message level onto Bootstrap's "danger" alert class.
+from django.contrib.messages import constants as _message_constants  # noqa: E402
+MESSAGE_TAGS = {_message_constants.ERROR: 'danger'}

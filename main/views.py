@@ -1,13 +1,16 @@
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
-from django.db.models import Q
-from django.shortcuts import get_object_or_404
+from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
 from .utils import myprojects
-from main.models import Project, ProjectUser, ProjectPlacetype
+from main.iiif import ingest_source
+from main.iiif.exceptions import IngestError
+from main.models import Project, ProjectUser, ProjectPlacetype, Source
 from main.forms import ProjectCreateModelForm
 
 # NOTE (WO-0.2): the Leaflet-era Draw page, Map CRUD, Feature CRUD, and the
@@ -53,8 +56,35 @@ class ProjectUpdateView(LoginRequiredMixin, UpdateView):
 
   def get_context_data(self, *args, **kwargs):
     context = super().get_context_data(*args, **kwargs)
-    context['project_id'] = self.kwargs.get("pk")
+    pk = self.kwargs.get("pk")
+    context['project_id'] = pk
+    context['sources'] = (Source.objects
+                          .filter(project_id=pk)
+                          .annotate(image_count=Count('images'))
+                          .order_by('label', 'id'))
     return context
+
+
+@login_required
+def add_source(request, pk):
+  """Ingest a IIIF Manifest or Image service into a project (WO-0.2)."""
+  project = get_object_or_404(Project, pk=pk)
+  if request.method == 'POST':
+    uri = (request.POST.get('uri') or '').strip()
+    if not uri:
+      messages.error(request, 'Enter a IIIF Manifest or Image-service URI.')
+    else:
+      try:
+        src = ingest_source(uri, project=project, owner=request.user)
+      except IngestError as exc:
+        messages.error(request, f'Ingest failed: {exc}')
+      else:
+        n = src.images.count()
+        messages.success(
+          request,
+          f'Added source #{src.pk} ({src.get_ingest_kind_display()}) — '
+          f'{n} image{"" if n == 1 else "s"}.')
+  return redirect('project-update', pk=pk)
 
 
 class ProjectDeleteView(DeleteView):
