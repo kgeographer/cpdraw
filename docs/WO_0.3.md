@@ -51,7 +51,54 @@ Phase 0 target: `Source #1` (Polona *Galicyja i Lodomeryja*), `MapImage` seq 0
 
 ---
 
-## 3. Frontend (`frontend/`)
+## 3. Page content & flow
+
+Terminology: a **Source** is the manifest — bibliographic metadata, the "add
+source" action, and (for now) its Django-admin change page. A **MapImage** is
+one canvas within it — the thing you *open* in the viewer; `WorkState.status` is
+per-MapImage. "Map" colloquially = a MapImage.
+
+Two entry points to the viewer, both landing on `/draw/<image_id>/`:
+
+### Dashboard — a "Maps" section below Projects
+
+A flat table of every MapImage across the user's projects — the "grab the next
+one" path, and the demo-friendly view for Braga.
+
+| Project | Source | Image | Size | Status | Actions |
+|---|---|---|---|---|---|
+| galicia | Galicyja i Lodomeryja | [1r] | 15919×12357 | ● unstarted | **Open** · Metadata |
+
+- **Open** → `/draw/<image_id>/`.
+- **Metadata** → the Source's admin change page (a read-only Source detail page
+  is a later WO / WO-0.5).
+- **Status** → `WorkState.status` badge (unstarted / in-progress / complete).
+  **Inert until WO-0.4** — nothing advances it yet.
+- "Image" column shows the canvas label, or "—" when the Source has a single
+  image. Ordering: in-progress, then unstarted, then complete (fall back to
+  project → source → seq).
+
+### Project page — MapImages under each Source
+
+The Sources list (already there) gains, under each Source, its MapImage(s):
+canvas label · size · status badge · **Open** → `/draw/<id>/`. This is the
+canonical drill-down; keeps the Source → MapImage hierarchy visible.
+
+### Draw page header
+
+A strip above the viewer: Source label · image label · "← back to project" · a
+status control (set in-progress / complete) whose value the two lists above
+reflect. The status control is wired but does nothing useful until WO-0.4.
+
+### Straddles
+
+The dashboard section and the project-page list are content, not viewer wiring —
+they overlap WO-0.5 territory. Speccing them here because they're small and the
+viewer is unreachable without at least one of them; both ship in WO-0.3.
+
+---
+
+## 4. Frontend (`frontend/`)
 
 - **Dependency:** `openseadragon` (5.x — satisfies `@annotorious/openseadragon`'s
   peer range for WO-0.4), `@types/openseadragon` dev. Pin exact.
@@ -65,7 +112,7 @@ Phase 0 target: `Source #1` (Polona *Galicyja i Lodomeryja*), `MapImage` seq 0
   Annotorious.
 - HMR: editing `Viewer.svelte` should re-init cleanly (destroy + recreate).
 
-## 4. Backend
+## 5. Backend
 
 - **`main/views.py`** — `DrawView(LoginRequiredMixin, DetailView)` (or a function
   view) on `MapImage`; context: `iiif_info_url = f"{image.image_service_uri}/info.json"`,
@@ -82,29 +129,29 @@ Phase 0 target: `Source #1` (Polona *Galicyja i Lodomeryja*), `MapImage` seq 0
 - **`project_update.html`** — under each Source, list its `MapImage`s as links to
   `/draw/<id>/`.
 
-## 5. Remove (WO-0.1 scaffolding)
+## 6. Remove (WO-0.1 scaffolding)
 
 `/draw/_wo01/` route (`wo01-pipeline-check`), `main/templates/main/wo01_pipeline_check.html`,
 `src/draw/SmokeProbe.svelte`. CLAUDE.md's WO-0.1 section already flags these for
 removal here.
 
-## 6. Sequencing
+## 7. Sequencing
 
 1. `pnpm --dir frontend add openseadragon` (+ `-D @types/openseadragon`).
 2. `Viewer.svelte` + rewrite `main.ts`; delete `SmokeProbe.svelte`.
-3. `DrawView` + `/draw/<int:image_id>/` route; `draw.html` real content.
-4. `MapImage` links on the project page.
+3. `DrawView` + `/draw/<int:image_id>/` route; `draw.html` real content + header strip.
+4. Dashboard "Maps" section; MapImage list under each Source on the project page (§3).
 5. Delete the `_wo01` scaffolding.
 6. Verify dev (Vite dev server) **and** built (`pnpm build` + `DEBUG=False`) modes.
 
-## 7. Deliverable
+## 8. Deliverable
 
 login → project **galicia** → open `MapImage` seq 0 → the unrectified Galicia scan
 renders in OpenSeadragon; smooth pan/zoom; tiles stream from `polona.pl`; the
 navigator thumbnail shows. Works in both dev and built modes. No annotation tools
 yet.
 
-## 8. Open questions carried forward
+## 9. Open questions carried forward
 
 - Multi-canvas navigation (prev/next within a Source) — a later nicety; the
   per-image route + project-page links suffice for Phase 0.
