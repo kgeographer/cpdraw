@@ -35,8 +35,8 @@ frontend/
   pnpm-workspace.yaml    build-script triage (esbuild allowed; rest blocked)
   src/
     draw/
-      main.ts            entry point (WO-0.1 smoke: import @allmaps/transform + mount Svelte)
-      SmokeProbe.svelte  throwaway probe component — deleted in WO-0.3
+      main.ts            entry point — reads #cpdraw-draw-root[data-iiif], mounts the viewer
+      Viewer.svelte      OpenSeadragon wrapper (dispatches `ready` for WO-0.4 Annotorious)
   dist/                  build output (gitignored); dist/.vite/manifest.json is what Django reads
 ```
 
@@ -76,10 +76,10 @@ The `/static/frontend/` prefix is wired in three places that must agree:
 This is build-time Node only — unrelated to the separate runtime-Node question
 for `@allmaps/cli` in Phase 1 (scoping doc Open Question 3).
 
-## WO-0.1 smoke page
+## The Draw page
 
-`/draw/_wo01/` (`main/templates/main/wo01_pipeline_check.html`, route in
-`main/urls.py`). No auth, not in any nav. It proves the build can (1) execute an
-ESM-only Allmaps package in the browser and (2) mount a Svelte component.
-Remove it and `SmokeProbe.svelte` when WO-0.3 puts the real OpenSeadragon
-viewer on the Draw page.
+`/draw/<image_id>/` (`DrawView` → `main/templates/main/draw.html`) renders one
+`MapImage`. The template puts `data-iiif="<image_service>/info.json"` on
+`#cpdraw-draw-root` and loads `{% vite_asset 'src/draw/main.ts' %}`; `main.ts`
+reads the attr and mounts `Viewer.svelte`, which news up OpenSeadragon. (The
+WO-0.1 `_wo01` smoke page and `SmokeProbe.svelte` were removed here.)

@@ -1,14 +1,35 @@
 {% extends "main/base.html" %}
-{% block title %}<title>CPDraw — Draw</title>{% endblock %}
+{% load django_vite %}
+{% block title %}<title>CPDraw — {{ image.source }}</title>{% endblock %}
+{% block extra_head %}
+  {% vite_hmr_client %}
+  {% vite_asset 'src/draw/main.ts' %}
+  <style>
+    #draw-header {
+      padding: .4rem .9rem;
+      border-bottom: 1px solid #ddd;
+      font-size: .9rem;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+    #cpdraw-draw-root {
+      height: 80vh;
+      background: #1b1b1b;
+    }
+  </style>
+{% endblock %}
 {% block content %}
-<div class="container" id="content">
-  <div class="pt-3">
-    <h3>Draw</h3>
-    <p>
-      The OpenSeadragon image viewer (WO-0.3) and Annotorious annotation tools
-      (WO-0.4) land here. The Leaflet-era Draw page was removed in WO-0.2 with
-      the <code>Map</code> / <code>Feature</code> model.
-    </p>
-  </div>
+<div id="draw-header">
+  <a href="{% url 'project-update' image.source.project_id %}">&larr; {{ image.source.project.label }}</a>
+  <strong>{{ image.source }}</strong>
+  <span class="text-muted">
+    {{ image.label|default:"—" }} &middot; {{ image.width }}&times;{{ image.height }}
+  </span>
+  <span class="ml-auto">
+    {% include "main/_status_badge.html" with status=image.workstate.status %}
+  </span>
 </div>
+
+<div id="cpdraw-draw-root" data-iiif="{{ iiif_info_url }}"></div>
 {% endblock %}

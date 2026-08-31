@@ -59,9 +59,9 @@ not bump ahead of Annotorious.
 - **Prod:** `pnpm --dir frontend build` (writes `frontend/dist/` + manifest) **before**
   `collectstatic`. With `DEBUG=False` django-vite emits hashed tags served from
   `/static/frontend/`.
-- **Smoke page:** `/draw/_wo01/` — throwaway, proves ESM-Allmaps + Svelte both load. Delete
-  it, `SmokeProbe.svelte`, and the `wo01-pipeline-check` route when WO-0.3 lands the real
-  OpenSeadragon viewer.
+- **Draw entry:** `frontend/src/draw/main.ts` → `Viewer.svelte` mounts OpenSeadragon over the
+  IIIF service named by the mount div's `data-iiif` attr (WO-0.3). The WO-0.1 `_wo01` smoke
+  page is gone.
 - This is build-time Node only; runtime Node for `@allmaps/cli` is still Open Question 3.
 
 ## Domain model & ingest (WO-0.2 — in progress)

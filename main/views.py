@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
-from django.views.generic import CreateView, DeleteView, ListView, UpdateView
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
 from .utils import myprojects
 from main.iiif import ingest_source
@@ -45,6 +45,25 @@ class DashboardView(LoginRequiredMixin, ListView):
       .order_by('source__project__label', 'source__label', 'source_id', 'seq')
     )
     return context
+
+
+class DrawView(LoginRequiredMixin, DetailView):
+  """WO-0.3: render one MapImage in the OpenSeadragon viewer."""
+  model = MapImage
+  pk_url_kwarg = 'image_id'
+  template_name = 'main/draw.html'
+  context_object_name = 'image'
+  login_url = '/accounts/login/'
+
+  def get_queryset(self):
+    return MapImage.objects.select_related(
+      'source', 'source__project', 'workstate')
+
+  def get_context_data(self, **kwargs):
+    ctx = super().get_context_data(**kwargs)
+    base = self.object.image_service_uri.rstrip('/')
+    ctx['iiif_info_url'] = f'{base}/info.json'
+    return ctx
 
 
 class ProjectCreateView(LoginRequiredMixin, CreateView):

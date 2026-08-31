@@ -1,26 +1,20 @@
-// WO-0.1 smoke entry point.
+// Draw-page entry (WO-0.3). Mounts the OpenSeadragon viewer over the IIIF
+// Image service named by the mount element's `data-iiif` attribute.
 //
-// Purpose: prove the build pipeline can do the two things the legacy
-// script-tag/jQuery setup could not, and which every later work order needs:
-//   1. resolve and execute an ESM-only Allmaps package (with its own
-//      npm dependency tree) in the browser;
-//   2. compile and mount a Svelte component.
-//
-// Replaced in WO-0.3, when OpenSeadragon renders the real target map into
-// #cpdraw-draw-root.
+// WO-0.4 will attach Annotorious to the same viewer instance via the `ready`
+// event Viewer.svelte dispatches.
 
-import * as allmapsTransform from '@allmaps/transform';
-import SmokeProbe from './SmokeProbe.svelte';
-
-const allmapsExports = Object.keys(allmapsTransform).sort();
-console.log(
-  '[cpdraw wo-0.1] @allmaps/transform loaded; exports:',
-  allmapsExports,
-);
+import Viewer from './Viewer.svelte';
 
 const target = document.getElementById('cpdraw-draw-root');
-if (target) {
-  new SmokeProbe({ target, props: { allmapsExports } });
+
+if (!target) {
+  console.warn('[cpdraw] #cpdraw-draw-root not found — nothing mounted');
 } else {
-  console.warn('[cpdraw wo-0.1] #cpdraw-draw-root not found — nothing mounted');
+  const tileSource = target.dataset.iiif;
+  if (!tileSource) {
+    console.error('[cpdraw] #cpdraw-draw-root has no data-iiif attribute');
+  } else {
+    new Viewer({ target, props: { tileSource } });
+  }
 }

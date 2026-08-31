@@ -64,7 +64,7 @@
                 <td class="small">{{ img.width }}&times;{{ img.height }}</td>
                 <td>{% include "main/_status_badge.html" with status=img.workstate.status %}</td>
                 <td class="small">
-                  <span class="text-muted" title="opens in the viewer — WO-0.3">Open</span>
+                  <a href="{% url 'main:draw-image' img.id %}">Open</a>
                   &middot;
                   <a href="/admin/main/source/{{ img.source_id }}/change/">Metadata</a>
                 </td>

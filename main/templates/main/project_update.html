@@ -34,7 +34,7 @@
                   {{ img.label|default:"—" }}
                   <span class="text-muted">{{ img.width }}&times;{{ img.height }}</span>
                   {% include "main/_status_badge.html" with status=img.workstate.status %}
-                  <span class="text-muted" title="opens in the viewer — WO-0.3">Open</span>
+                  <a href="{% url 'main:draw-image' img.id %}">Open</a>
                 </li>
               {% endfor %}
             </ul>

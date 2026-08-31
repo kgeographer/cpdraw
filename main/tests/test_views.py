@@ -58,9 +58,7 @@ class ProjectPageTests(TestCase):
         self.assertContains(resp, "[1r]")
         self.assertContains(resp, "15919&times;12357")
         self.assertContains(resp, "in progress")
-        # "Open" is present but inert until WO-0.3
-        self.assertContains(resp, 'title="opens in the viewer')
-        self.assertNotContains(resp, "/draw/{}/".format(self.recto.id))
+        self.assertContains(resp, f'href="/draw/{self.recto.id}/"')
 
     def test_add_source_rejects_empty_uri(self):
         resp = self.client.post(f"/project/{self.project.id}/add_source/", {"uri": ""}, follow=True)
@@ -97,3 +95,36 @@ class ProjectPageTests(TestCase):
         resp = self.client.post(f"/project/{self.project.id}/add_source/", {"uri": "x"})
         self.assertEqual(resp.status_code, 302)
         self.assertIn("/accounts/login/", resp["Location"])
+
+
+class DrawViewTests(ProjectPageTests):
+    def test_draw_page_renders_with_iiif_info_url_and_header(self):
+        resp = self.client.get(f"/draw/{self.recto.id}/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["iiif_info_url"], "https://x/iiif/a/info.json")
+        self.assertContains(resp, 'id="cpdraw-draw-root"')
+        self.assertContains(resp, 'data-iiif="https://x/iiif/a/info.json"')
+        self.assertContains(resp, "galicia-map")             # header (Source __str__)
+        self.assertContains(resp, "[1r]")
+        self.assertContains(resp, "15919&times;12357")
+        self.assertContains(resp, 'href="/project_update/{}"'.format(self.project.id))
+
+    def test_draw_info_url_strips_trailing_slash(self):
+        self.recto.image_service_uri = "https://x/iiif/a/"
+        self.recto.save(update_fields=["image_service_uri"])
+        resp = self.client.get(f"/draw/{self.recto.id}/")
+        self.assertEqual(resp.context["iiif_info_url"], "https://x/iiif/a/info.json")
+
+    def test_draw_page_404_for_unknown_image(self):
+        self.assertEqual(self.client.get("/draw/999999/").status_code, 404)
+
+    def test_draw_page_requires_login(self):
+        self.client.logout()
+        resp = self.client.get(f"/draw/{self.recto.id}/")
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/accounts/login/", resp["Location"])
+
+    def test_bare_draw_redirects_to_dashboard(self):
+        resp = self.client.get("/draw/")
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], "/dashboard/")
