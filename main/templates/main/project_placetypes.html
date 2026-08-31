@@ -1,0 +1,78 @@
+{% extends "main/base.html" %}
+{% load static %}
+{% block title %}<title>CPDraw — {{ project.label }} types</title>{% endblock %}
+{% block content %}
+<div class="container mt-3">
+  <p class="mb-1"><a href="{% url 'project-update' project.id %}">&larr; {{ project.label }}</a></p>
+  <h4 class="text-warning">place-type vocabulary</h4>
+  <p class="small text-muted">
+    Your own terms for this project. Attach a Getty AAT type when there is a
+    sensible match — it need not have one.
+  </p>
+
+  <table class="table table-sm" style="max-width: 42rem">
+    <thead class="small"><th>term</th><th>AAT</th><th></th></thead>
+    <tbody>
+      {% for pt in placetypes %}
+        <tr>
+          <td>{{ pt.source_label }}</td>
+          <td class="small text-muted">
+            {% if pt.aattype_id %}{{ pt.aat_term }} <span>(aat:{{ pt.aattype_id }})</span>{% else %}—{% endif %}
+          </td>
+          <td class="small">
+            <form method="post" class="d-inline">{% csrf_token %}
+              <input type="hidden" name="delete" value="{{ pt.id }}">
+              <button class="btn btn-link btn-sm p-0 text-danger" type="submit">remove</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3" class="small text-muted">No types yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <form method="post" class="mt-2" style="max-width: 42rem" id="add-type-form">
+    {% csrf_token %}
+    <div class="form-row">
+      <div class="col">
+        <label class="small mb-1" for="src-label">term</label>
+        <input type="text" name="source_label" id="src-label" required
+               class="form-control form-control-sm" placeholder="e.g. peoples">
+      </div>
+      <div class="col">
+        <label class="small mb-1" for="aat-search">Getty AAT (optional)</label>
+        <input type="text" id="aat-search" class="form-control form-control-sm"
+               placeholder="type to search AAT…">
+        <input type="hidden" name="aattype" id="aat-id">
+        <small id="aat-chosen" class="text-muted"></small>
+      </div>
+      <div class="col-auto align-self-end">
+        <button class="btn btn-sm btn-primary" type="submit">Add</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+$(function () {
+  $('#aat-search').autocomplete({
+    minLength: 2,
+    source: function (req, resp) {
+      $.getJSON('/api/placetypes/search/', { q: req.term }, function (data) {
+        resp(data.map(function (d) {
+          return { label: d.term + '  (aat:' + d.aat_id + ')', value: d.term, aat_id: d.aat_id };
+        }));
+      });
+    },
+    select: function (e, ui) {
+      $('#aat-id').val(ui.item.aat_id);
+      $('#aat-chosen').text('→ ' + ui.item.value + ' (aat:' + ui.item.aat_id + ')  ');
+    }
+  });
+  $('#aat-search').on('input', function () {
+    if (!$(this).val()) { $('#aat-id').val(''); $('#aat-chosen').text(''); }
+  });
+});
+</script>
+{% endblock %}

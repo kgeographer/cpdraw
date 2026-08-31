@@ -13,6 +13,7 @@ urlpatterns = [
     path('project_delete/<int:id>', views.ProjectDeleteView.as_view(), name='project-delete'),
     path('project_update/<int:pk>', views.ProjectUpdateView.as_view(), name='project-update'),
     path('project/<int:pk>/add_source/', views.add_source, name='source-add'),
+    path('project/<int:pk>/types/', views.project_placetypes, name='project-types'),
 
     path('api/', include('api.urls')),
     path('accounts/', include('accounts.urls')),

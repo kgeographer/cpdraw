@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from django.db.models import Count, Q
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
@@ -12,8 +12,19 @@ from urllib.parse import urlencode
 from .utils import myprojects
 from main.iiif import ingest_source, preflight
 from main.iiif.exceptions import IngestError
-from main.models import MapImage, Project, ProjectUser, ProjectPlacetype, Source
+from main.models import (MapImage, Placetype, Project, ProjectPlacetype,
+                         ProjectUser, Source)
 from main.forms import ProjectCreateModelForm
+
+# Starter place-type vocabulary seeded into every new project (WO-0.4). Bregel's
+# five; the AAT mapping is attached only if load_aat_feature_types has been run.
+STARTER_PLACETYPES = [
+  ('historical region', 300387178),
+  ('inhabited place', 300008347),
+  ('archaeological site', 300000810),
+  ('dynasty', 300386176),
+  ('cultural group', 300387171),
+]
 
 # NOTE (WO-0.2): the Leaflet-era Draw page, Map CRUD, Feature CRUD, and the
 # CSV/LPF export (download_project / get_minmax / maketime) were removed here
@@ -76,6 +87,17 @@ class ProjectCreateView(LoginRequiredMixin, CreateView):
 
   login_url = '/accounts/login/'
   redirect_field_name = 'redirect_to'
+
+  def form_valid(self, form):
+    response = super().form_valid(form)
+    aat = {p.aat_id: p for p in Placetype.objects.filter(
+      aat_id__in=[a for _, a in STARTER_PLACETYPES])}
+    ProjectPlacetype.objects.bulk_create([
+      ProjectPlacetype(project=self.object, source_label=label,
+                       aattype=aat.get(aat_id))
+      for label, aat_id in STARTER_PLACETYPES
+    ])
+    return response
 
 
 class ProjectUpdateView(LoginRequiredMixin, UpdateView):
@@ -144,6 +166,31 @@ def add_source(request, pk):
     f'Added source #{src.pk} ({src.get_ingest_kind_display()}) — '
     f'{n} image{"" if n == 1 else "s"}.')
   return back
+
+
+@login_required
+def project_placetypes(request, pk):
+  """Manage a project's place-type vocabulary (WO-0.4)."""
+  project = get_object_or_404(Project, pk=pk)
+  if request.method == 'POST':
+    if request.POST.get('delete'):
+      ProjectPlacetype.objects.filter(pk=request.POST['delete'], project=project).delete()
+      messages.success(request, 'Type removed.')
+    else:
+      label = (request.POST.get('source_label') or '').strip()
+      aat_id = (request.POST.get('aattype') or '').strip()
+      if not label:
+        messages.error(request, 'Enter a term.')
+      else:
+        aat = Placetype.objects.filter(aat_id=aat_id).first() if aat_id.isdigit() else None
+        ProjectPlacetype.objects.create(project=project, source_label=label, aattype=aat)
+        messages.success(request, f'Added “{label}”.')
+    return redirect('project-types', pk=pk)
+
+  return render(request, 'main/project_placetypes.html', {
+    'project': project,
+    'placetypes': project.placetypes.select_related('aattype').all(),
+  })
 
 
 class ProjectDeleteView(DeleteView):

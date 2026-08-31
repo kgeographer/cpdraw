@@ -150,6 +150,48 @@ class ProjectPageTests(TestCase):
         self.assertIn("/accounts/login/", resp["Location"])
 
 
+class ProjectVocabTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from main.models import Placetype, ProjectPlacetype
+        cls.Placetype, cls.ProjectPlacetype = Placetype, ProjectPlacetype
+        cls.user = User.objects.create_user("voc", is_superuser=True)
+        Placetype.objects.create(aat_id=300387178, term="historical region",
+                                 term_full="historical regions", note="")
+        Placetype.objects.create(aat_id=300008347, term="inhabited place",
+                                 term_full="inhabited places", note="")
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_project_create_seeds_starter_vocab(self):
+        self.client.post("/project_create/",
+                         {"title": "Galicia", "label": "gal", "owner": self.user.id})
+        proj = Project.objects.get(label="gal")
+        pts = list(proj.placetypes.values_list("source_label", flat=True))
+        self.assertEqual(len(pts), 5)
+        self.assertIn("cultural group", pts)
+        hr = proj.placetypes.get(source_label="historical region")
+        self.assertEqual(hr.aattype_id, 300387178)      # mapped where the AAT row exists
+        cg = proj.placetypes.get(source_label="cultural group")
+        self.assertIsNone(cg.aattype_id)                 # unmapped (no Placetype row)
+
+    def test_add_and_remove_type(self):
+        proj = Project.objects.create(owner=self.user, title="P", label="p")
+        r = self.client.post(f"/project/{proj.id}/types/",
+                             {"source_label": "peoples"}, follow=True)
+        self.assertContains(r, "peoples")
+        pt = proj.placetypes.get(source_label="peoples")
+        self.assertIsNone(pt.aattype_id)
+
+        self.client.post(f"/project/{proj.id}/types/",
+                         {"source_label": "region", "aattype": "300387178"})
+        self.assertEqual(proj.placetypes.get(source_label="region").aattype_id, 300387178)
+
+        self.client.post(f"/project/{proj.id}/types/", {"delete": pt.id})
+        self.assertFalse(proj.placetypes.filter(source_label="peoples").exists())
+
+
 class DrawViewTests(ProjectPageTests):
     def test_draw_page_renders_with_iiif_info_url_and_header(self):
         resp = self.client.get(f"/draw/{self.recto.id}/")
