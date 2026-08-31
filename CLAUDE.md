@@ -80,9 +80,24 @@ Working spec: `docs/WO_0.2.md`.
 - The Leaflet stack is gone: `django-leaflet` / `django-geojson`, the Mapbox token settings,
   the `cpdraw/static/js/leaflet*` tree, the `TILES_URL` tile route, and the Leaflet-era Draw
   page / Map-Feature CRUD / CSV-LPF export. `reverse-geocoder` + `geojson` kept for the
-  Phase 1 LPF rebuild. `main:draw` is a placeholder until WO-0.3.
-- **Still pending in WO-0.2:** the §1a project-create decisions (spatial-scope / placetype
-  capture).
+  Phase 1 LPF rebuild.
+- **WO-0.3 done:** `/draw/<image_id>/` renders a `MapImage` in OpenSeadragon
+  (`frontend/src/draw/{main.ts,Viewer.svelte}`). Ingest also stores a per-image quality
+  advisory (`main/iiif/quality.py` → `MapImage.quality_notes`), and `add_source` preflights —
+  a very-low-res warning gates behind an "add anyway" tick.
+
+## Annotation & vocabulary (WO-0.4 — in progress)
+
+Working spec: `docs/WO_0.4.md`.
+
+- `Annotation` model (image-space geometry): `w3c` blob (as Annotorious emits it) + extracted
+  columns. Two orthogonal type axes — `feature_role` (CPDraw enum: region / label / boundary /
+  site; never in LPF) and `placetype` → `ProjectPlacetype`.
+- `ProjectPlacetype` is the project's own vocab: `source_label` (free text) + **nullable**
+  `aattype` AAT mapping (the WHG LP-TSV `types[]` / `aat_types[]` pattern).
+- Master AAT = the LPF-supported subset. `manage.py load_aat_feature_types` loads
+  `main/data/feature-types-AAT_20230609.tsv` into `Placetype` (idempotent; run once after
+  migrate).
 
 ## Key decisions already made (see scoping doc for full reasoning)
 

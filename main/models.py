@@ -74,25 +74,36 @@ class Placetype(models.Model):
 
 # placetypes designated per project
 class ProjectPlacetype(models.Model):
-  project = models.ForeignKey(Project,default=-1, on_delete=models.CASCADE)
-  aattype = models.ForeignKey(Placetype,default=-1, to_field='aat_id', on_delete=models.CASCADE)
-  # placetype label used in source
+  """A project's own place-type vocabulary. `source_label` is the user's term
+  (any language); `aattype` is an optional mapping into the master AAT table.
+  Mirrors WHG LP-TSV `types[]` / `aat_types[]`."""
+  project = models.ForeignKey(Project, related_name='placetypes', on_delete=models.CASCADE)
+  aattype = models.ForeignKey(Placetype, to_field='aat_id', null=True, blank=True,
+                              on_delete=models.SET_NULL)
   source_label = models.CharField(max_length=100)
 
   @property
   def aat_term(self):
-    return get_object_or_404(Placetype,aat_id=self.aattype_id).term
+    if self.aattype_id is None:
+      return ''
+    pt = Placetype.objects.filter(aat_id=self.aattype_id).first()
+    return pt.term if pt else ''
+
+  def __str__(self):
+    return self.source_label
 
   def as_dict(self):
     return {
-      "identifier": "aat:"+str(self.aattype_id),
-      "label": self.aat_term,
-      "sourceLabel": self.source_label
+      "id": self.pk,
+      "sourceLabel": self.source_label,
+      "identifier": f"aat:{self.aattype_id}" if self.aattype_id else None,
+      "label": self.aat_term or None,
     }
 
   class Meta:
     managed = True
     db_table = 'project_placetype'
+    ordering = ['project', 'source_label']
 
 
 # ---------------------------------------------------------------------------
@@ -226,3 +237,58 @@ class WorkState(models.Model):
   class Meta:
     managed = True
     db_table = 'work_states'
+
+
+class Annotation(models.Model):
+  """A feature drawn on a MapImage, in image (pixel) coordinates (WO-0.4).
+
+  The row is CPDraw's source of truth: `w3c` holds the annotation as
+  Annotorious emits it (the pixel geometry lives in its SvgSelector); the
+  named columns are what CPDraw and later LPF work from. See docs/WO_0.4.md.
+  """
+  image = models.ForeignKey('main.MapImage', db_column='image',
+                            related_name='annotations', on_delete=models.CASCADE)
+
+  class GeometryType(models.TextChoices):
+    POLYGON = 'polygon', 'Polygon'
+    POLYLINE = 'polyline', 'Polyline'
+    POINT = 'point', 'Point'          # deferred to Phase 1
+
+  class FeatureRole(models.TextChoices):
+    REGION = 'region', 'Region'
+    LABEL = 'label', 'Label'          # letterspacing extent gesture (§4)
+    BOUNDARY = 'boundary', 'Boundary'  # a traced drawn border
+    SITE = 'site', 'Site'             # deferred to Phase 1
+
+  class Certainty(models.TextChoices):
+    CERTAIN = 'certain', 'Certain'
+    LIKELY = 'likely', 'Likely'
+    UNCERTAIN = 'uncertain', 'Uncertain'
+
+  geometry_type = models.CharField(max_length=12, choices=GeometryType.choices)
+  feature_role = models.CharField(max_length=12, choices=FeatureRole.choices)
+
+  name = models.CharField(max_length=255, blank=True)             # verbatim transcription
+  name_normalized = models.CharField(max_length=255, blank=True)  # optional editorial
+  placetype = models.ForeignKey('main.ProjectPlacetype', null=True, blank=True,
+                                related_name='annotations', on_delete=models.SET_NULL)
+  certainty = models.CharField(max_length=12, choices=Certainty.choices, blank=True)
+  when = JSONField(null=True, blank=True)                         # per-feature temporal override
+
+  w3c = JSONField(default=dict, blank=True)                       # annotation as Annotorious emits it
+  bbox = ArrayField(models.FloatField(), size=4, null=True, blank=True)  # [x0, y0, x1, y1] in px
+
+  created_by = models.ForeignKey(settings.AUTH_USER_MODEL,
+                                 related_name='annotations', on_delete=models.PROTECT)
+  modified_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                  related_name='annotations_modified', on_delete=models.SET_NULL)
+  created = models.DateTimeField(auto_now_add=True)
+  modified = models.DateTimeField(auto_now=True)
+
+  def __str__(self):
+    return self.name or f'{self.get_feature_role_display()} {self.pk}'
+
+  class Meta:
+    managed = True
+    db_table = 'annotations'
+    ordering = ['image', 'created']
