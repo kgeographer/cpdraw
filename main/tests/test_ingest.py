@@ -99,6 +99,42 @@ class ParseInfoJsonTests(TestCase):
         self.assertTrue(img.image_service_uri.endswith("cf2d49d7-1d3a-448d-abb2-190d6bd01af8"))
 
 
+class RumseyV2Tests(TestCase):
+    """A clean IIIF Presentation 2 manifest (David Rumsey) — the happy path,
+    and a foil to Polona: nothing to normalise."""
+
+    def setUp(self):
+        self.doc = load("rumsey_manifest.json")
+
+    def test_sniffed_as_manifest(self):
+        self.assertEqual(sniff_kind(self.doc), "manifest")
+
+    def test_detects_v2(self):
+        self.assertEqual(detect_version(self.doc), "2")
+
+    def test_clean_manifest_produces_empty_normalization_log(self):
+        _, log = normalize(self.doc, "https://www.davidrumsey.com/x")
+        self.assertEqual(log, [])
+
+    def test_parse_v2_one_canvas(self):
+        sd = parse_manifest(self.doc)
+        self.assertEqual(sd.iiif_version, "2")
+        self.assertEqual(sd.label, "Europe.")
+        self.assertEqual(len(sd.images), 1)
+        img = sd.images[0]
+        self.assertEqual(
+            img.image_service_uri,
+            "https://www.davidrumsey.com/luna/servlet/iiif/RUMSEY~8~1~37247~1210240",
+        )
+        self.assertEqual((img.width, img.height), (6762, 5888))
+        self.assertTrue(img.canvas_uri.endswith("/canvas/c1"))
+
+    def test_v2_attribution_becomes_required_statement(self):
+        sd = parse_manifest(self.doc)
+        self.assertEqual(sd.required_statement["value"],
+                         "David Rumsey Historical Map Collection")
+
+
 class IngestTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -127,6 +163,24 @@ class IngestTests(TestCase):
 
         verso = src.images.get(seq=1)
         self.assertEqual((verso.width, verso.height), (7969, 6235))
+
+    def test_rumsey_v2_manifest_ingest(self):
+        src = ingest_source(
+            "https://www.davidrumsey.com/.../manifest",
+            project=self.project, owner=self.user,
+            fetcher=lambda uri: fetch_result("rumsey_manifest.json", "manifest"),
+        )
+        self.assertEqual(src.ingest_kind, Source.IngestKind.MANIFEST)
+        self.assertEqual(src.iiif_version, "2")
+        self.assertEqual(src.images.count(), 1)
+        self.assertEqual(src.iiif_label, "Europe.")
+        self.assertEqual(src.normalization_log, [])
+        self.assertEqual(src.iiif_required_statement["value"],
+                         "David Rumsey Historical Map Collection")
+        img = src.images.get(seq=0)
+        self.assertEqual((img.width, img.height), (6762, 5888))
+        self.assertFalse(img.needs_metadata)
+        self.assertEqual(img.workstate.status, "unstarted")
 
     def test_bare_image_service_needs_manual_metadata(self):
         src = ingest_source(
