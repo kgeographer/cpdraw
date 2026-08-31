@@ -64,6 +64,24 @@ not bump ahead of Annotorious.
   OpenSeadragon viewer.
 - This is build-time Node only; runtime Node for `@allmaps/cli` is still Open Question 3.
 
+## Domain model & ingest (WO-0.2 — in progress)
+
+The predecessor's `Map` / `Feature` / `Name` are gone. Live model in `main/models.py`:
+`Project` / `ProjectUser` / `Placetype` / `ProjectPlacetype` (kept) → `Source` → `MapImage` →
+`WorkState`. `Source` keeps the raw IIIF document verbatim plus a `normalization_log`;
+CPDraw-authored metadata sits alongside manifest-derived fields and never overwrites them.
+Working spec: `docs/WO_0.2.md`.
+
+- IIIF ingest is **Python** (`main/iiif/`): `fetch` → `normalize` (tolerant, per-host quirks) →
+  `parse_manifest` / `parse_info_json` (Presentation 2 and 3) →
+  `ingest_source(uri, project=, owner=)`. Graceful-degradation branch per scoping doc §6a.
+- Drive it: `manage.py ingest_source <uri> --project <label> [--from-file path]`, or the
+  "add source" form on the project page (`/project_update/<id>`).
+- The Leaflet-era Draw page, Map/Feature CRUD, and CSV/LPF export were removed (git history;
+  LPF export rebuilds against `Annotation` in Phase 1). `main:draw` is a placeholder until WO-0.3.
+- **Still pending in WO-0.2:** the full Leaflet teardown (`django-leaflet`, the
+  `cpdraw/static/js/leaflet*` tree, the `TILES_URL` route); the §1a project-create decisions.
+
 ## Key decisions already made (see scoping doc for full reasoning)
 
 - Image-space (unrectified IIIF source, pixel coordinates) is canonical; geo-space is derived
