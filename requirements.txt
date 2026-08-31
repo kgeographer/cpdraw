@@ -7,6 +7,5 @@ requests==2.34.*    # WO-0.2: IIIF manifest / info.json fetch
 
 django-fontawesome-5==1.0.*
 djangorestframework==3.18.*
-djangorestframework-datatables==0.7.*
 geojson==3.3.*
 reverse-geocoder==1.5.*

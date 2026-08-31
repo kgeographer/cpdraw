@@ -1,9 +1,17 @@
-# api.urls
+# api.urls (WO-0.4)
 
-from django.urls import path, include
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
-# WO-0.2: feature/geom routes removed with the Feature model. The browsable-API
-# login stays; annotation endpoints arrive in WO-0.4.
+from . import views
+
+router = DefaultRouter()
+router.register("annotations", views.AnnotationViewSet, basename="annotation")
+router.register("project-placetypes", views.ProjectPlacetypeViewSet,
+                basename="projectplacetype")
+
 urlpatterns = [
-    path('api-auth/', include('rest_framework.urls')),
+    path("api-auth/", include("rest_framework.urls")),
+    path("placetypes/search/", views.placetype_search, name="placetype-search"),
+    *router.urls,
 ]
