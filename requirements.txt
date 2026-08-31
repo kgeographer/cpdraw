@@ -3,6 +3,7 @@ psycopg[binary]==3.3.*
 python-dotenv==1.2.*
 whitenoise==6.11.*
 django-vite==3.1.*  # WO-0.1: bridges the Vite build (frontend/) into Django templates
+requests==2.34.*    # WO-0.2: IIIF manifest / info.json fetch
 
 django-leaflet==0.34.*
 django-geojson==4.2.*
