@@ -162,9 +162,21 @@ it (§10).
 
 ---
 
-## 5. Leaflet teardown — inventory
+## 5. Leaflet teardown — done (2026-08-31)
 
-Everything in the inherited tree that assumes Leaflet / the tile-pyramid model:
+Removed: `django-leaflet` + `django-geojson` (`djgeojson`) from `INSTALLED_APPS` and
+`requirements.txt`; the `MAPBOX_TOKEN_*` settings; `TILES_URL` / `TILES_ROOT` and the
+DEBUG-only tile route in `cpdraw/urls.py`; the `cpdraw/static/js/{leaflet,leaflet-draw,
+leaflet-image.js,leaflet.ajax.min.js,easyprint.js,spin.umd.js,tags}` tree; the
+`{% load leaflet_tags %}` lines in the remaining templates; the `tiles/` `.gitignore`
+entry. The Leaflet-era Draw page, Map/Feature CRUD, and CSV/LPF export were already
+gone (the `8382f22` models commit). `reverse-geocoder` and the plain `geojson` lib are
+kept for the Phase 1 LPF rebuild. `main/static/js/{FileSaver,ds_grid,aliases,parents}`
+are orphaned non-Leaflet leftovers — a separate cleanup.
+
+Original inventory, for reference:
+
+- `django-leaflet` in `INSTALLED_APPS` (and any `LEAFLET_CONFIG`)
 
 - `django-leaflet` in `INSTALLED_APPS` (and any `LEAFLET_CONFIG`)
 - `main/templates/main/draw.html` — the Leaflet + Mapbox-Draw page (replaced by the

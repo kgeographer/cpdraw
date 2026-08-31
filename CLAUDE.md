@@ -77,10 +77,12 @@ Working spec: `docs/WO_0.2.md`.
   `ingest_source(uri, project=, owner=)`. Graceful-degradation branch per scoping doc §6a.
 - Drive it: `manage.py ingest_source <uri> --project <label> [--from-file path]`, or the
   "add source" form on the project page (`/project_update/<id>`).
-- The Leaflet-era Draw page, Map/Feature CRUD, and CSV/LPF export were removed (git history;
-  LPF export rebuilds against `Annotation` in Phase 1). `main:draw` is a placeholder until WO-0.3.
-- **Still pending in WO-0.2:** the full Leaflet teardown (`django-leaflet`, the
-  `cpdraw/static/js/leaflet*` tree, the `TILES_URL` route); the §1a project-create decisions.
+- The Leaflet stack is gone: `django-leaflet` / `django-geojson`, the Mapbox token settings,
+  the `cpdraw/static/js/leaflet*` tree, the `TILES_URL` tile route, and the Leaflet-era Draw
+  page / Map-Feature CRUD / CSV-LPF export. `reverse-geocoder` + `geojson` kept for the
+  Phase 1 LPF rebuild. `main:draw` is a placeholder until WO-0.3.
+- **Still pending in WO-0.2:** the §1a project-create decisions (spatial-scope / placetype
+  capture).
 
 ## Key decisions already made (see scoping doc for full reasoning)
 

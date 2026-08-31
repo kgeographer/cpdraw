@@ -1,5 +1,3 @@
-from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from django.views.generic.base import TemplateView
@@ -21,8 +19,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 ]
 
-# WO-0.2: map_* CRUD, project_download, and the names/ endpoint were removed
-# with the Map/Feature/Name models. Source ingest routes arrive later in WO-0.2;
-# the tile-serving block below goes with the full Leaflet teardown.
-if settings.DEBUG:
-    urlpatterns += static(settings.TILES_URL, document_root=settings.TILES_ROOT)
+# WO-0.2: map_* CRUD, project_download, the names/ endpoint, and the DEBUG-only
+# tile-pyramid route were all removed with the Leaflet-era stack. Source ingest
+# routes live in main/urls.py; the OpenSeadragon Draw page arrives in WO-0.3.

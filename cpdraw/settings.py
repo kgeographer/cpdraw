@@ -24,12 +24,6 @@ if os.environ.get('GDAL_LIBRARY_PATH'):
 if os.environ.get('GEOS_LIBRARY_PATH'):
     GEOS_LIBRARY_PATH = os.environ['GEOS_LIBRARY_PATH']
 
-# Mapbox tokens for the draw-page tile layers; real values live in
-# local_settings.py (gitignored), which overrides these empty defaults.
-MAPBOX_TOKEN_MB = ''
-MAPBOX_TOKEN_KG = ''
-
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
 
@@ -56,11 +50,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.staticfiles',
 
-    'djgeojson',
     'rest_framework',
     'rest_framework_datatables',
     'fontawesome_5',
-    'leaflet',
     'django_vite',
 
     'accounts.apps.AccountsConfig',
@@ -173,11 +165,6 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
-
-# Local dev-only serving of georeferenced map tile pyramids (see cpdraw/urls.py).
-# tiles/<project label>/<map label>/<z>/<x>/<y>.png
-TILES_URL = '/tiles/'
-TILES_ROOT = os.path.join(BASE_DIR, 'tiles')
 
 try:
     from .local_settings import *
