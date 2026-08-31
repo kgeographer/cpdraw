@@ -61,7 +61,10 @@
                 <td>{{ img.source.project.label }}</td>
                 <td>{{ img.source }}</td>
                 <td>{{ img.label|default:"—" }}</td>
-                <td class="small">{{ img.width }}&times;{{ img.height }}</td>
+                <td class="small">
+                  {{ img.width }}&times;{{ img.height }}
+                  {% include "main/_quality_flag.html" with notes=img.quality_notes warning=img.has_quality_warning %}
+                </td>
                 <td>{% include "main/_status_badge.html" with status=img.workstate.status %}</td>
                 <td class="small">
                   <a href="{% url 'main:draw-image' img.id %}">Open</a>

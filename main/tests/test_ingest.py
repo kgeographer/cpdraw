@@ -33,6 +33,21 @@ def fetch_result(name, kind=None):
     )
 
 
+def fake_fetcher(manifest_fixture, info_fixture=None):
+    """A URL-routing fetcher: `.../info.json` -> info_fixture (or FetchError),
+    anything else -> manifest_fixture."""
+    from main.iiif.exceptions import FetchError
+
+    def _fetch(uri):
+        if uri.rstrip("/").endswith("/info.json"):
+            if info_fixture is None:
+                raise FetchError(f"no info.json fixture for {uri}")
+            return fetch_result(info_fixture, "image_service")
+        return fetch_result(manifest_fixture, "manifest")
+
+    return _fetch
+
+
 class SniffTests(TestCase):
     def test_manifest_and_info_json(self):
         self.assertEqual(sniff_kind(load("polona_manifest.json")), "manifest")
@@ -145,7 +160,7 @@ class IngestTests(TestCase):
         src = ingest_source(
             "https://polona.pl/.../manifest",
             project=self.project, owner=self.user,
-            fetcher=lambda uri: fetch_result("polona_manifest.json", "manifest"),
+            fetcher=fake_fetcher("polona_manifest.json", "polona_info.json"),
         )
         self.assertEqual(src.ingest_kind, Source.IngestKind.MANIFEST)
         self.assertEqual(src.iiif_version, "3")
@@ -160,15 +175,19 @@ class IngestTests(TestCase):
         self.assertEqual((recto.width, recto.height), (15919, 12357))
         self.assertFalse(recto.needs_metadata)
         self.assertEqual(recto.workstate.status, "unstarted")
+        # per-canvas info.json was fetched, cached, and cleared quality:
+        self.assertIsNotNone(recto.info_json)
+        self.assertEqual(recto.quality_notes, [])
 
         verso = src.images.get(seq=1)
         self.assertEqual((verso.width, verso.height), (7969, 6235))
 
     def test_rumsey_v2_manifest_ingest(self):
+        # no info.json fixture routed -> quality assessed from manifest w/h alone
         src = ingest_source(
             "https://www.davidrumsey.com/.../manifest",
             project=self.project, owner=self.user,
-            fetcher=lambda uri: fetch_result("rumsey_manifest.json", "manifest"),
+            fetcher=fake_fetcher("rumsey_manifest.json"),
         )
         self.assertEqual(src.ingest_kind, Source.IngestKind.MANIFEST)
         self.assertEqual(src.iiif_version, "2")
@@ -181,6 +200,19 @@ class IngestTests(TestCase):
         self.assertEqual((img.width, img.height), (6762, 5888))
         self.assertFalse(img.needs_metadata)
         self.assertEqual(img.workstate.status, "unstarted")
+        self.assertIsNone(img.info_json)
+        self.assertIn("low_res", {n["code"] for n in img.quality_notes})
+
+    def test_rumsey_with_real_info_json_flags_large_tiles(self):
+        src = ingest_source(
+            "https://www.davidrumsey.com/.../manifest",
+            project=self.project, owner=self.user,
+            fetcher=fake_fetcher("rumsey_manifest.json", "rumsey_info.json"),
+        )
+        img = src.images.get(seq=0)
+        self.assertIsNotNone(img.info_json)
+        self.assertEqual({n["code"] for n in img.quality_notes},
+                         {"low_res", "large_tiles"})
 
     def test_bare_image_service_needs_manual_metadata(self):
         src = ingest_source(

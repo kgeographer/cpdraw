@@ -33,6 +33,7 @@
                 <li>
                   {{ img.label|default:"—" }}
                   <span class="text-muted">{{ img.width }}&times;{{ img.height }}</span>
+                  {% include "main/_quality_flag.html" with notes=img.quality_notes warning=img.has_quality_warning %}
                   {% include "main/_status_badge.html" with status=img.workstate.status %}
                   <a href="{% url 'main:draw-image' img.id %}">Open</a>
                 </li>
@@ -52,10 +53,18 @@
         <div class="input-group">
           <input type="url" name="uri" id="src-uri"
                  class="form-control form-control-sm"
+                 value="{{ request.GET.add_uri|default:'' }}"
                  placeholder="https://…/manifest" required>
           <div class="input-group-append">
             <button class="btn btn-sm btn-primary" type="submit">Add</button>
           </div>
+        </div>
+        <div class="form-check small mt-1">
+          <input type="checkbox" name="add_anyway" id="add-anyway"
+                 class="form-check-input" {% if request.GET.add_uri %}autofocus{% endif %}>
+          <label for="add-anyway" class="form-check-label text-muted">
+            add anyway (skip the quality check)
+          </label>
         </div>
       </form>
     </div>

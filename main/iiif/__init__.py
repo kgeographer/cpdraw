@@ -14,7 +14,7 @@ Public entry points:
 
 from .client import FetchResult, fetch
 from .exceptions import FetchError, IngestError, ParseError
-from .ingest import ingest_source
+from .ingest import Preflight, ingest_source, preflight
 from .normalize import normalize
 from .parse import ImageData, SourceData, parse_info_json, parse_manifest
 
@@ -25,6 +25,8 @@ __all__ = [
     "IngestError",
     "ParseError",
     "ingest_source",
+    "preflight",
+    "Preflight",
     "normalize",
     "ImageData",
     "SourceData",

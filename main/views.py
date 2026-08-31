@@ -7,8 +7,10 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
+from urllib.parse import urlencode
+
 from .utils import myprojects
-from main.iiif import ingest_source
+from main.iiif import ingest_source, preflight
 from main.iiif.exceptions import IngestError
 from main.models import MapImage, Project, ProjectUser, ProjectPlacetype, Source
 from main.forms import ProjectCreateModelForm
@@ -99,24 +101,49 @@ class ProjectUpdateView(LoginRequiredMixin, UpdateView):
 
 @login_required
 def add_source(request, pk):
-  """Ingest a IIIF Manifest or Image service into a project (WO-0.2)."""
+  """Ingest a IIIF Manifest or Image service into a project.
+
+  Preflight first: if the quality check turns up warnings and the user didn't
+  tick 'add anyway', bounce back with the specifics and create nothing.
+  """
   project = get_object_or_404(Project, pk=pk)
-  if request.method == 'POST':
-    uri = (request.POST.get('uri') or '').strip()
-    if not uri:
-      messages.error(request, 'Enter a IIIF Manifest or Image-service URI.')
-    else:
-      try:
-        src = ingest_source(uri, project=project, owner=request.user)
-      except IngestError as exc:
-        messages.error(request, f'Ingest failed: {exc}')
-      else:
-        n = src.images.count()
-        messages.success(
-          request,
-          f'Added source #{src.pk} ({src.get_ingest_kind_display()}) — '
-          f'{n} image{"" if n == 1 else "s"}.')
-  return redirect('project-update', pk=pk)
+  back = redirect('project-update', pk=pk)
+
+  if request.method != 'POST':
+    return back
+
+  uri = (request.POST.get('uri') or '').strip()
+  add_anyway = bool(request.POST.get('add_anyway'))
+  if not uri:
+    messages.error(request, 'Enter a IIIF Manifest or Image-service URI.')
+    return back
+
+  if not add_anyway:
+    try:
+      pf = preflight(uri)
+    except IngestError as exc:
+      messages.error(request, f'Ingest failed: {exc}')
+      return back
+    if pf.has_warnings:
+      messages.warning(request, (
+        'That source looks marginal for tracing: '
+        + '; '.join(pf.warning_lines)
+        + ". Tick “add anyway” and resubmit to keep it."))
+      url = reverse('project-update', args=[pk]) + '?' + urlencode({'add_uri': uri})
+      return redirect(url)
+
+  try:
+    src = ingest_source(uri, project=project, owner=request.user)
+  except IngestError as exc:
+    messages.error(request, f'Ingest failed: {exc}')
+    return back
+
+  n = src.images.count()
+  messages.success(
+    request,
+    f'Added source #{src.pk} ({src.get_ingest_kind_display()}) — '
+    f'{n} image{"" if n == 1 else "s"}.')
+  return back
 
 
 class ProjectDeleteView(DeleteView):

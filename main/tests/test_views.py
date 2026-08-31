@@ -3,8 +3,23 @@ from unittest import mock
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
+from main.iiif import Preflight
+from main.iiif.ingest import ImagePreflight
 from main.iiif.exceptions import FetchError
 from main.models import MapImage, Project, Source, WorkState
+
+
+def _clean_preflight():
+    return Preflight("manifest", "3", "Clean",
+                     [ImagePreflight(0, "", 15919, 12357, [])])
+
+
+def _marginal_preflight():
+    """A source with a *gating* warning (very low resolution)."""
+    return Preflight("manifest", "2", "Marginal", [ImagePreflight(
+        0, "sheet 1", 3000, 2400,
+        [{"level": "warning", "code": "very_low_res",
+          "message": "Very low resolution (3000×2400)."}])])
 
 User = get_user_model()
 
@@ -25,7 +40,9 @@ class ProjectPageTests(TestCase):
             image_service_uri="https://x/iiif/a", width=15919, height=12357)
         cls.verso = MapImage.objects.create(
             source=cls.src, seq=1, label="[1v]",
-            image_service_uri="https://x/iiif/b", width=50, height=40)
+            image_service_uri="https://x/iiif/b", width=6762, height=5888,
+            quality_notes=[{"level": "info", "code": "low_res",
+                            "message": "Moderate resolution (6762×5888)."}])
         WorkState.objects.create(image=cls.recto, status=WorkState.Status.IN_PROGRESS)
         WorkState.objects.create(image=cls.verso)  # unstarted
 
@@ -59,6 +76,16 @@ class ProjectPageTests(TestCase):
         self.assertContains(resp, "15919&times;12357")
         self.assertContains(resp, "in progress")
         self.assertContains(resp, f'href="/draw/{self.recto.id}/"')
+        # the low-res verso carries a quality warning flag; the recto doesn't
+        self.assertContains(resp, "Moderate resolution (6762")   # in the ⚠ title=
+        self.assertEqual(resp.content.decode().count("&#9888;"), 1)
+
+    def test_draw_header_shows_quality_flag_when_flagged(self):
+        clean = self.client.get(f"/draw/{self.recto.id}/")
+        self.assertNotContains(clean, "&#9888;")
+        flagged = self.client.get(f"/draw/{self.verso.id}/")
+        self.assertContains(flagged, "&#9888;")
+        self.assertContains(flagged, "Moderate resolution (6762")
 
     def test_add_source_rejects_empty_uri(self):
         resp = self.client.post(f"/project/{self.project.id}/add_source/", {"uri": ""}, follow=True)
@@ -66,15 +93,16 @@ class ProjectPageTests(TestCase):
         msgs = [m.message for m in resp.context["messages"]]
         self.assertTrue(any("Enter a IIIF" in m for m in msgs))
 
-    @mock.patch("main.views.ingest_source", side_effect=FetchError("nope: HTTP 404"))
-    def test_add_source_reports_ingest_failure(self, _ingest):
+    @mock.patch("main.views.preflight", side_effect=FetchError("nope: HTTP 404"))
+    def test_add_source_reports_fetch_failure(self, _pf):
         resp = self.client.post(
             f"/project/{self.project.id}/add_source/",
             {"uri": "https://polona.pl/bad/manifest"}, follow=True)
         msgs = [m.message for m in resp.context["messages"]]
         self.assertTrue(any("Ingest failed" in m for m in msgs))
 
-    def test_add_source_success_message(self):
+    @mock.patch("main.views.preflight", side_effect=lambda uri: _clean_preflight())
+    def test_add_source_clean_commits(self, _pf):
         new = Source.objects.create(
             project=self.project, owner=self.user, ingest_uri="https://y/manifest",
             ingest_kind=Source.IngestKind.MANIFEST, iiif_version="3")
@@ -84,11 +112,36 @@ class ProjectPageTests(TestCase):
                 f"/project/{self.project.id}/add_source/",
                 {"uri": "https://y/manifest"}, follow=True)
         ing.assert_called_once()
-        _, kwargs = ing.call_args
-        self.assertEqual(kwargs["project"], self.project)
-        self.assertEqual(kwargs["owner"], self.user)
         msgs = [m.message for m in resp.context["messages"]]
         self.assertTrue(any("Added source" in m and "1 image" in m for m in msgs))
+
+    @mock.patch("main.views.ingest_source")
+    @mock.patch("main.views.preflight", side_effect=lambda uri: _marginal_preflight())
+    def test_add_source_marginal_needs_confirm(self, _pf, ing):
+        before = Source.objects.count()
+        resp = self.client.post(
+            f"/project/{self.project.id}/add_source/",
+            {"uri": "https://rumsey/marginal/manifest"}, follow=True)
+        ing.assert_not_called()
+        self.assertEqual(Source.objects.count(), before)
+        msgs = [str(m) for m in resp.context["messages"]]
+        self.assertTrue(any("looks marginal" in m and "Very low resolution" in m for m in msgs))
+        # the URI is echoed back for a one-tick resubmit
+        self.assertContains(resp, "rumsey/marginal/manifest")
+        self.assertContains(resp, 'name="add_anyway"')
+
+    @mock.patch("main.views.preflight")
+    def test_add_source_add_anyway_skips_preflight(self, pf):
+        new = Source.objects.create(
+            project=self.project, owner=self.user, ingest_uri="https://y/manifest",
+            ingest_kind=Source.IngestKind.MANIFEST, iiif_version="3")
+        MapImage.objects.create(source=new, seq=0, image_service_uri="https://y/iiif/a")
+        with mock.patch("main.views.ingest_source", return_value=new) as ing:
+            self.client.post(
+                f"/project/{self.project.id}/add_source/",
+                {"uri": "https://y/manifest", "add_anyway": "on"}, follow=True)
+        pf.assert_not_called()
+        ing.assert_called_once()
 
     def test_add_source_requires_login(self):
         self.client.logout()

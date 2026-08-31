@@ -1,0 +1,2 @@
+{% if notes %}<span class="{% if warning %}text-danger{% else %}text-warning{% endif %}" title="{% for n in notes %}{{ n.message }}{% if not forloop.last %}
+{% endif %}{% endfor %}">&#9888;</span>{% endif %}

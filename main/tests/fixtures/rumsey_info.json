@@ -1,0 +1,17 @@
+{
+  "@context" : "http://iiif.io/api/image/2/context.json",
+  "@id" : "https://www.davidrumsey.com/luna/servlet/iiif/RUMSEY~8~1~37247~1210240",
+  "width" : 6762,
+  "height" : 5888,
+  "tiles" : [ {
+    "width" : 1536,
+    "height" : 1536,
+    "scaleFactors" : [ 1, 2, 4, 8, 16 ]
+  } ],
+  "profile" : [ "http://iiif.io/api/image/2/level2.json", {
+    "formats" : [ "jpg", "png" ],
+    "qualities" : [ "default", "color", "bitonal", "gray" ],
+    "supports" : [ "regionByPx", "sizeByW", "sizeByH", "sizeByWh", "rotationBy90s", "sizeByConfinedWh", "sizeByDistortedWh", "sizeByPct", "regionByPct" ]
+  } ],
+  "protocol" : "http://iiif.io/api/image"
+}

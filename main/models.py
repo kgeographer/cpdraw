@@ -177,12 +177,20 @@ class MapImage(models.Model):
   label = models.CharField(max_length=1000, blank=True)            # per-image override
   when = JSONField(null=True, blank=True)                          # per-image override
 
+  # Advisory notes from main.iiif.quality.assess() — resolution / tiling
+  # fitness for tracing. [{level, code, message}, ...]. Never blocks ingest.
+  quality_notes = JSONField(default=list, blank=True)
+
   needs_metadata = models.BooleanField(default=False)              # created via the degradation path
   created = models.DateTimeField(auto_now_add=True)
   modified = models.DateTimeField(auto_now=True)
 
   def __str__(self):
     return self.label or f'{self.source} #{self.seq}'
+
+  @property
+  def has_quality_warning(self):
+    return any(n.get('level') == 'warning' for n in self.quality_notes)
 
   class Meta:
     managed = True

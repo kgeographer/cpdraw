@@ -155,6 +155,8 @@ yet.
 
 - Multi-canvas navigation (prev/next within a Source) — a later nicety; the
   per-image route + project-page links suffice for Phase 0.
-- Caching `info_json` onto the `MapImage` on first render — optional optimisation,
-  not required while the live fetch works.
+- ~~Caching `info_json` onto the `MapImage`~~ — done: ingest now fetches each
+  canvas's `info.json` best-effort and stores it, alongside a quality advisory
+  (`main/iiif/quality.py` → `MapImage.quality_notes`, surfaced with a ⚠ in the
+  Maps list / project page and an alert in the Draw header).
 - Per-project view permissions — WO-0.5.

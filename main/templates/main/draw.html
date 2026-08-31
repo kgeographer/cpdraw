@@ -27,6 +27,7 @@
     {{ image.label|default:"—" }} &middot; {{ image.width }}&times;{{ image.height }}
   </span>
   <span class="ml-auto">
+    {% include "main/_quality_flag.html" with notes=image.quality_notes warning=image.has_quality_warning %}
     {% include "main/_status_badge.html" with status=image.workstate.status %}
   </span>
 </div>
