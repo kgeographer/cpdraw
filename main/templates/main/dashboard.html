@@ -43,9 +43,40 @@
           </tbody>
         </table>
       </div>
-    </div>
-</div> <!-- container -->  
-<script type="text/javascript">
 
-</script>
+      <h4 class="mt-4">Maps</h4>
+      <div class="list-box">
+        <table class="table table-striped">
+          <thead class="small">
+            <th>project</th>
+            <th>source</th>
+            <th>image</th>
+            <th>size</th>
+            <th>status</th>
+            <th></th>
+          </thead>
+          <tbody>
+            {% for img in map_images %}
+              <tr>
+                <td>{{ img.source.project.label }}</td>
+                <td>{{ img.source }}</td>
+                <td>{{ img.label|default:"—" }}</td>
+                <td class="small">{{ img.width }}&times;{{ img.height }}</td>
+                <td>{% include "main/_status_badge.html" with status=img.workstate.status %}</td>
+                <td class="small">
+                  <span class="text-muted" title="opens in the viewer — WO-0.3">Open</span>
+                  &middot;
+                  <a href="/admin/main/source/{{ img.source_id }}/change/">Metadata</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6" class="small text-muted">
+                No maps yet — add a IIIF source on a project page.
+              </td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+</div> <!-- container -->
 {% endblock %}

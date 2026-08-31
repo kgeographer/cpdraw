@@ -20,10 +20,14 @@ class ProjectPageTests(TestCase):
             ingest_kind=Source.IngestKind.MANIFEST,
             iiif_version="3", label="galicia-map", title="Galicyja i Lodomeryja",
         )
-        MapImage.objects.create(source=cls.src, seq=0,
-                                image_service_uri="https://x/iiif/a", width=100, height=80)
-        MapImage.objects.create(source=cls.src, seq=1,
-                                image_service_uri="https://x/iiif/b", width=50, height=40)
+        cls.recto = MapImage.objects.create(
+            source=cls.src, seq=0, label="[1r]",
+            image_service_uri="https://x/iiif/a", width=15919, height=12357)
+        cls.verso = MapImage.objects.create(
+            source=cls.src, seq=1, label="[1v]",
+            image_service_uri="https://x/iiif/b", width=50, height=40)
+        WorkState.objects.create(image=cls.recto, status=WorkState.Status.IN_PROGRESS)
+        WorkState.objects.create(image=cls.verso)  # unstarted
 
     def setUp(self):
         self.client.force_login(self.user)
@@ -36,6 +40,27 @@ class ProjectPageTests(TestCase):
         self.assertContains(resp, "Galicyja i Lodomeryja")
         self.assertContains(resp, "2 images")
         self.assertContains(resp, "Add source")
+
+    def test_project_page_lists_mapimages_under_source_with_status(self):
+        resp = self.client.get(f"/project_update/{self.project.id}")
+        self.assertContains(resp, "[1r]")
+        self.assertContains(resp, "15919&times;12357")
+        self.assertContains(resp, "in progress")
+        self.assertContains(resp, "unstarted")
+
+    def test_dashboard_maps_section(self):
+        resp = self.client.get("/dashboard/")
+        self.assertEqual(resp.status_code, 200)
+        images = list(resp.context["map_images"])
+        self.assertEqual(len(images), 2)
+        self.assertContains(resp, ">Maps<")
+        self.assertContains(resp, "galicia-map")
+        self.assertContains(resp, "[1r]")
+        self.assertContains(resp, "15919&times;12357")
+        self.assertContains(resp, "in progress")
+        # "Open" is present but inert until WO-0.3
+        self.assertContains(resp, 'title="opens in the viewer')
+        self.assertNotContains(resp, "/draw/{}/".format(self.recto.id))
 
     def test_add_source_rejects_empty_uri(self):
         resp = self.client.post(f"/project/{self.project.id}/add_source/", {"uri": ""}, follow=True)

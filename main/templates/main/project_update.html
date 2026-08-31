@@ -21,13 +21,23 @@
       <h5>Sources</h5>
       <ul class="list-unstyled">
         {% for s in sources %}
-          <li class="mb-2">
+          <li class="mb-3">
             <a href="/admin/main/source/{{ s.id }}/change/">{{ s }}</a>
             <div class="small text-muted">
               {% if s.title and s.title != s.label %}{{ s.title }} · {% endif %}
               {{ s.get_ingest_kind_display }} ·
               {{ s.image_count }} image{{ s.image_count|pluralize }}
             </div>
+            <ul class="list-unstyled small mt-1 mb-0 ml-3">
+              {% for img in s.images.all %}
+                <li>
+                  {{ img.label|default:"—" }}
+                  <span class="text-muted">{{ img.width }}&times;{{ img.height }}</span>
+                  {% include "main/_status_badge.html" with status=img.workstate.status %}
+                  <span class="text-muted" title="opens in the viewer — WO-0.3">Open</span>
+                </li>
+              {% endfor %}
+            </ul>
           </li>
         {% empty %}
           <li class="small text-muted">No sources yet.</li>

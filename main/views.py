@@ -10,7 +10,7 @@ from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 from .utils import myprojects
 from main.iiif import ingest_source
 from main.iiif.exceptions import IngestError
-from main.models import Project, ProjectUser, ProjectPlacetype, Source
+from main.models import MapImage, Project, ProjectUser, ProjectPlacetype, Source
 from main.forms import ProjectCreateModelForm
 
 # NOTE (WO-0.2): the Leaflet-era Draw page, Map CRUD, Feature CRUD, and the
@@ -27,12 +27,24 @@ class DashboardView(LoginRequiredMixin, ListView):
   login_url = '/accounts/login/'
   redirect_field_name = 'redirect_to'
 
-  def get_queryset(self):
+  def _visible_projects(self):
     me = self.request.user
-    if me.username in ['admin', 'karlg']:
-      return Project.objects.all().order_by('label')
-    return Project.objects.filter(
-      Q(id__in=myprojects(me)) | Q(owner=me)).order_by('label')
+    if me.is_superuser or me.username in ['admin', 'karlg']:
+      return Project.objects.all()
+    return Project.objects.filter(Q(id__in=myprojects(me)) | Q(owner=me))
+
+  def get_queryset(self):
+    return self._visible_projects().order_by('label')
+
+  def get_context_data(self, *args, **kwargs):
+    context = super().get_context_data(*args, **kwargs)
+    context['map_images'] = (
+      MapImage.objects
+      .filter(source__project__in=self._visible_projects())
+      .select_related('source', 'source__project', 'workstate')
+      .order_by('source__project__label', 'source__label', 'source_id', 'seq')
+    )
+    return context
 
 
 class ProjectCreateView(LoginRequiredMixin, CreateView):
@@ -61,6 +73,7 @@ class ProjectUpdateView(LoginRequiredMixin, UpdateView):
     context['sources'] = (Source.objects
                           .filter(project_id=pk)
                           .annotate(image_count=Count('images'))
+                          .prefetch_related('images__workstate')
                           .order_by('label', 'id'))
     return context
 
