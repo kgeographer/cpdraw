@@ -86,18 +86,33 @@ Working spec: `docs/WO_0.2.md`.
   advisory (`main/iiif/quality.py` → `MapImage.quality_notes`), and `add_source` preflights —
   a very-low-res warning gates behind an "add anyway" tick.
 
-## Annotation & vocabulary (WO-0.4 — in progress)
+## Annotation & vocabulary (WO-0.4 — done)
 
 Working spec: `docs/WO_0.4.md`.
 
-- `Annotation` model (image-space geometry): `w3c` blob (as Annotorious emits it) + extracted
-  columns. Two orthogonal type axes — `feature_role` (CPDraw enum: region / label / boundary /
-  site; never in LPF) and `placetype` → `ProjectPlacetype`.
-- `ProjectPlacetype` is the project's own vocab: `source_label` (free text) + **nullable**
-  `aattype` AAT mapping (the WHG LP-TSV `types[]` / `aat_types[]` pattern).
+- `/draw/<image_id>/` mounts Annotorious v3 (`@annotorious/openseadragon` +
+  `@annotorious/plugin-tools`) on the OSD viewer. `frontend/src/draw/`: `App.svelte` (toolbar
+  Region→polygon / Label-boundary→path / Select), `Viewer.svelte`, `annotationStore.ts`
+  (load + CRUD → `/api/annotations/`), `PropertiesPanel.svelte` (name / role / type /
+  certainty, debounced PATCH).
+- `Annotation` model (image-space pixel geometry): `w3c` blob as Annotorious emits it +
+  extracted columns. Two orthogonal type axes — `feature_role` (CPDraw enum: region / label /
+  boundary / site; never in LPF) and `placetype` → `ProjectPlacetype`.
+- `ProjectPlacetype` = the project's own vocab: `source_label` (free text) + **nullable**
+  `aattype` AAT mapping (the WHG LP-TSV `types[]` / `aat_types[]` pattern). Managed at
+  `/project/<pk>/types/`; new projects seed Bregel's five.
 - Master AAT = the LPF-supported subset. `manage.py load_aat_feature_types` loads
   `main/data/feature-types-AAT_20230609.tsv` into `Placetype` (idempotent; run once after
   migrate).
+- API is plain DRF (`/api/annotations/`, `/api/project-placetypes/`,
+  `/api/placetypes/search/`) — session auth, `IsAuthenticated`, no pagination.
+
+## Next — WO-0.5
+
+Existing auth / project / map-list views wired through, and the register/login flow rebuilt
+to Django conventions (`UserCreationForm`, `PasswordResetView`, `LoginView`). Carried:
+spatial-scope capture at project-create (WO_0.2.md §1a). Point capture is Phase 1
+(a CPDraw OSD overlay, §9.1).
 
 ## Key decisions already made (see scoping doc for full reasoning)
 
