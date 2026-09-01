@@ -1,10 +1,8 @@
-// Draw-page entry (WO-0.3). Mounts the OpenSeadragon viewer over the IIIF
-// Image service named by the mount element's `data-iiif` attribute.
-//
-// WO-0.4 will attach Annotorious to the same viewer instance via the `ready`
-// event Viewer.svelte dispatches.
+// Draw-page entry (WO-0.3 / WO-0.4). Mounts the OpenSeadragon viewer + the
+// Annotorious annotation layer over the IIIF service named by the mount
+// element's data- attributes.
 
-import Viewer from './Viewer.svelte';
+import App from './App.svelte';
 
 const target = document.getElementById('cpdraw-draw-root');
 
@@ -12,9 +10,11 @@ if (!target) {
   console.warn('[cpdraw] #cpdraw-draw-root not found — nothing mounted');
 } else {
   const tileSource = target.dataset.iiif;
-  if (!tileSource) {
-    console.error('[cpdraw] #cpdraw-draw-root has no data-iiif attribute');
+  const imageId = Number(target.dataset.imageId);
+  const projectId = Number(target.dataset.projectId);
+  if (!tileSource || !imageId || !projectId) {
+    console.error('[cpdraw] #cpdraw-draw-root needs data-iiif, data-image-id, data-project-id');
   } else {
-    new Viewer({ target, props: { tileSource } });
+    new App({ target, props: { tileSource, imageId, projectId } });
   }
 }

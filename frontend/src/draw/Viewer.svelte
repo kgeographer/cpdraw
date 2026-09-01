@@ -1,14 +1,22 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import OpenSeadragon from 'openseadragon';
+  import { createOSDAnnotator } from '@annotorious/openseadragon';
+  import { mountPlugin as mountToolsPlugin } from '@annotorious/plugin-tools';
+  import '@annotorious/openseadragon/annotorious-openseadragon.css';
+  import '@annotorious/plugin-tools/annotorious-plugin-tools.css';
+  import { attachStore, type Store } from './annotationStore';
 
-  /** IIIF Image `info.json` URL (or any value OSD's `tileSources` accepts). */
+  /** IIIF Image `info.json` URL (or anything OSD's `tileSources` accepts). */
   export let tileSource: string;
+  /** MapImage pk — annotations are scoped to it. */
+  export let imageId: number;
 
-  const dispatch = createEventDispatcher<{ ready: OpenSeadragon.Viewer }>();
+  const dispatch = createEventDispatcher<{ ready: { anno: any; store: Store } }>();
 
   let host: HTMLDivElement;
   let viewer: OpenSeadragon.Viewer | undefined;
+  let anno: any;
   let failed = false;
 
   onMount(() => {
@@ -16,9 +24,6 @@
       element: host,
       tileSources: tileSource,
       crossOriginPolicy: 'Anonymous',
-      // OSD's default zoom/home/fullscreen buttons load images from a CDN — skip
-      // them for now; pan/zoom works from the mouse. The navigator (mini-map)
-      // needs no images.
       showNavigationControl: false,
       showNavigator: true,
       navigatorPosition: 'TOP_RIGHT',
@@ -26,16 +31,30 @@
       visibilityRatio: 1,
       gestureSettingsMouse: { clickToZoom: false },
     });
-    viewer.addHandler('open', () => dispatch('ready', viewer!));
-    viewer.addHandler('open-failed', () => {
-      failed = true;
-    });
+    viewer.addHandler('open-failed', () => { failed = true; });
+
+    anno = createOSDAnnotator(viewer, { drawingEnabled: false });
+    mountToolsPlugin(anno);
+    const store = attachStore(anno, imageId);
+    dispatch('ready', { anno, store });
   });
 
   onDestroy(() => {
+    try { anno?.destroy?.(); } catch { /* noop */ }
     viewer?.destroy();
     viewer = undefined;
   });
+
+  /** Enable a drawing tool ('polygon' | 'path'), or pass null to return to select. */
+  export function setTool(tool: 'polygon' | 'path' | null) {
+    if (!anno) return;
+    if (tool) {
+      anno.setDrawingEnabled(true);
+      anno.setDrawingTool(tool);
+    } else {
+      anno.setDrawingEnabled(false);
+    }
+  }
 </script>
 
 <div class="osd-viewer">
@@ -46,25 +65,11 @@
 </div>
 
 <style>
-  .osd-viewer {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    background: #1b1b1b;
-  }
-  .osd-host {
-    width: 100%;
-    height: 100%;
-  }
+  .osd-viewer { position: relative; width: 100%; height: 100%; background: #1b1b1b; }
+  .osd-host { width: 100%; height: 100%; }
   .osd-error {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: #f5f5f5;
-    font: 14px/1.5 system-ui, sans-serif;
-    text-align: center;
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; color: #f5f5f5;
+    font: 14px/1.5 system-ui, sans-serif; text-align: center;
   }
 </style>

@@ -22,6 +22,8 @@
     "vite": "^5.4.21"
   },
   "dependencies": {
+    "@annotorious/openseadragon": "3.8.9",
+    "@annotorious/plugin-tools": "1.6.0",
     "openseadragon": "^6.1.0"
   }
 }
