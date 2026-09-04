@@ -120,6 +120,36 @@ than traces.
 
 ---
 
+## Off-the-shelf pieces worth trying first (Rainer, 2026-09)
+
+From correspondence with Rainer Simon — `docs/annotorious/rainer_20260903.txt`.
+Neither is committed to; both are cheap to evaluate before building the
+`/refine-geometry` service above.
+
+- **`@annotorious/plugin-magnetic-outline`** — OpenCV.js "smart scissors" /
+  magnetic contour tracing, an existing Annotorious plugin that works through the
+  OpenSeadragon connector. Classical CV (edge-following), no model, no service —
+  exactly the "thin boundary line" case above, and it degrades to hand-tracing
+  when the ink is too weak. Rainer's read of CPDraw's sample scans is that it
+  would "work really well." This is a **Path A mechanism that already exists**:
+  worth wiring into the Draw page as an annotator convenience (Phase 1), and
+  worth running against the Bregel corpus as a classical-CV baseline for the
+  evaluation below.
+  - Try before building: <https://liiive.now> — paste a IIIF URL, pick the
+    scissors tool from the top-left toolbar (select · rectangle · polygon ·
+    ellipse · **scissors** · scissors-dashed · trash · undo/redo), click a start
+    point on a boundary, then move the mouse once the wait spinner stops.
+  - Repo: <https://github.com/annotorious/plugin-magnetic-outline>
+- **VLM bounding boxes** — Rainer ran Qwen 3.8 (~Aug 2026) on historical map
+  crops and got "super-accurate bounding boxes for place names and symbols."
+  Polygons from a VLM: untested, open question. This is a datapoint for the
+  "visual-class ID (VLM)" step in the architecture chain, and for the lighter
+  idea of a VLM proposing *where the features are* (bboxes / seed points) that a
+  human or the tracer then refines — i.e. auto-placing the guidance points
+  rather than only tracing between hand-placed ones.
+
+---
+
 ## Evaluation
 
 A corpus item is a raster + hand-digitised geometry pair. Hide the finished vector,

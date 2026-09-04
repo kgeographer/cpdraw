@@ -245,7 +245,7 @@ Allmaps is a deliberate user action, not a default: data published there is CC0.
 | Backend | Django 5.2 + PostGIS, carried forward | High |
 | IIIF parsing | `@allmaps/iiif-parser`, wrapped in the normalization layer (§6a) | High |
 | Image-space viewer | OpenSeadragon | High |
-| Annotation UI | Annotorious | **Adopted — scope to be discovered (§9.1)** |
+| Annotation UI | Annotorious v3 + `plugin-tools` (polygon/line); CPDraw-owned OSD overlay for points | **Adopted; scope settled — §9 item 1, `docs/annotorious/`** |
 | Transform | `@allmaps/transform` / `@allmaps/project` via `@allmaps/cli` | High |
 | Annotation generation | `@allmaps/annotation` | High |
 | Geo-space viewer | Leaflet or MapLibre; `@allmaps/leaflet` `WarpedMapLayer` **optional**, for QA overlay of the warped source beneath derived vectors. Not required, Phase 1+. | High |
@@ -269,14 +269,14 @@ Licensing: Allmaps packages MIT, apps GPL-3.0, published data CC0.
    (open, no `Z`) and round-trips. This covers every Phase 0 geometry, the label linestring
    included. The plugin's peer deps (`@annotorious/{annotorious,openseadragon}@^3.7.22`) and
    its Svelte 4 / Vite 5 build line both match what WO-0.1 pinned.
-   **Point has no implementation on any release.** PR `annotorious/annotorious#443` built a
-   full one (concrete `Point` ShapeType, OSD coverage, W3C serialisation, tests) but it was
-   merged only to a feature branch that has since been deleted; Rainer intends to revise and
-   land it but has had no driving use case. CPDraw is that use case — point becomes an
-   upstream contribution, gated on Rainer's design call (a real `Point` type, confirmed by
-   email; not the ellipse-as-point workaround). Tracked in Phase 1, off the Phase 0 path.
-   See `docs/annotorious_check_findings.md` (now partly superseded) and the 2026-08-29
-   session log for the full dig.
+   **Point has no implementation on any release**, and a real one needs a `Point` primitive
+   plus non-scaling-overlay rendering in the Annotorious core first (PR
+   `annotorious/annotorious#443` did this but lives only on a since-deleted feature branch).
+   **CPDraw builds its own point maker** as a CPDraw-owned OpenSeadragon overlay and does not
+   pursue an Annotorious `Point` primitive or #443 (decided 2026-09-02, after Rainer confirmed
+   a v3→v4 rewrite is coming that will carry point support eventually). Point capture is Phase 1
+   (the georeferencing substrate), off the Phase 0 path. Full dig + correspondence:
+   `docs/annotorious/` (`README.md` is the index).
 2. **Fork or fresh.** The model changes touch nearly every table. A fresh Django project reusing
    the LPF export logic and the AAT placetype scoping may be cleaner than migrating.
 3. **Node in the deployment.** The CLI means Node alongside Django. Subprocess invocation vs. a
@@ -324,10 +324,11 @@ Georeference Annotation emission, transform via Allmaps CLI, residuals, derived 
 LPF export.
 
 **Point-tool track (parallel, unscheduled).** Point capture is the georeferencing substrate,
-and Annotorious has no point tool on any release (§9.1). Work with Rainer to revise and merge
-`annotorious/annotorious#443` or a successor; contribute the revision if that unblocks it
-sooner. Gated on his availability and design call, not CPDraw's schedule. Until it lands,
-the reconciliation UI can be prototyped against points placed by any interim mechanism.
+and Annotorious has no point tool on any release (§9 item 1). CPDraw builds its own — a
+CPDraw-owned OpenSeadragon overlay layer for placing/editing points, alongside the Annotorious
+layer that handles lines and polygons. Not an Annotorious `Point` primitive and not PR #443;
+the v3→v4 rewrite may make a native point tool available later, at which point this can be
+revisited. See `docs/annotorious/`.
 
 ### Phase 2 — Multi-user workflow, distortion analysis, warped-source QA overlay, Allmaps publication
 

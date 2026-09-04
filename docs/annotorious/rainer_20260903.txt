@@ -1,0 +1,52 @@
+Hi Karl,
+
+Agreed - VLMs are indeed getting really good at this stuff. I played with Qwen 3.8 recently (maybe 3 weeks ago?) and was surprised that it gave me super-accurate bounding boxes for place names and symbols (see attached images). I haven't tried asking it for polygons yet though. Wonder if that works?
+
+BTW: there's also an Annotorious plugin that uses OpenCV.js to help users trace contours more easily. Perhaps also something you could try. Judging from your sample images, I think it might work really well in your case.
+
+https://github.com/annotorious/plugin-magnetic-outline
+
+If you want to try before you implement, it's also one of the available tools in https://liiive.now. You can pop in a IIIF URL, pick the "smart scissors" tool from the top-left panel, click a starting point in the image, and then just move the mouse once the wait spinner stops.
+
+Cheers,
+Rainer
+
+
+Am 02.09.2026 um 18:04 schrieb Karl G <karl.geog@gmail.com>:
+
+Hi Rainer,
+
+Thanks for this. My sleuth did find an abandoned effort at a Point plug-in or add, but I’m not advocating dealing with it - I think it was a rejected PR.
+
+Of course I look forward to the rewrite of Annotorious, and if it does points that would be glorious (sorry, my inner bad poet couldn’t help it). In the meantime, I’m going to wire a separate point maker and use Annotorious for lines and polygons - and not try (or have Claude try) to make a Point primitive, especially now that I know a rewrite is on the way eventually. 
+
+I’m hopeful that CPDraw will be a pilot useful for ‘mapathons’ with my own Galicia region as exemplar POC. I think it would fill a real niche, and if it ultimately relied an a combo of Annotorious and Alma’s tooling, so much the better, shoulders of giants and all that :^)
+
+I have in mind to get a VLM involved in finding bounds with some digitized prompting - i.e. enter a handful of guiding pints and say in effect ’there is border here, find it for me’. It returns something that is editable and/or revisable with a further prompt of some kind - more guide points, whatever. Totally impossible for me pre-Claude but I learn as I go with this bot when I get into territory I don’t have chops in.
+
+A couple screenshots of WIP below - crude example drawn, written as an annotation on its way to becoming geodata. Draw tools are buttons at the moment
+
+Cheers, Karl
+<PastedGraphic-1.tiff>
+<PastedGraphic-3.tiff>
+<PastedGraphic-2.tiff>
+
+On Aug 31, 2026, at 4:12 AM, Rainer Simon <rainer@rainersimon.io> wrote:
+
+Hi Karl,
+
+ok, with a bit more time now! (I returned from 2 weeks Costa Rica yesterday :-)
+
+So.. the tools plugin is here:
+https://github.com/annotorious/plugin-tools
+
+It does include line, path/polyline and ellipse tools, but doesn't currently have a point tool. I somehow had the memory of someone opening a PR for point tool support... But now couldn't find anything, so no idea where that went. The main problem is that, in order to support a point tool, the Annotorious core first needs to support the "Point" primitive type internally, plus the code for rendering a non-scaling overlay. The tool itself - which would just handle the interactive editing - would then be pretty trivial.
+
+That being said: I'm also currently hacking (together with Claude...) on a rewrite of Annotorious, which should be pretty interesting for map annotation specifically: it will replace the rendering engine with DeckGL, which will allow Annotorious to support around 100k annotations in a single view. I'll also add a connector for OpenLayers (in addition to OpenSeadragon). At least in theory, that would open up the possibility to work with non-IIIF, geo-referenced materials more easily. But I haven't thought through the whole process yet. For now, IIIF remains my main focus.
+
+I saw your Bluesky post about EDOPS! How is that developing? And where are you based, physically, at the moment?
+
+Best,
+Rainer
+
+

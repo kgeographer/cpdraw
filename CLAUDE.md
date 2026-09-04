@@ -147,19 +147,22 @@ editor UI; front-end library modernisation (Bootstrap 4 → 5, drop jQuery/jQuer
   and regenerated when georeferencing improves. Never the reverse.
 - Viewer: **OpenSeadragon**, not Leaflet — Leaflet only reappears later (Phase 1+) as an
   optional geo-space viewer over already-derived output.
-- Annotation UI: **Annotorious v3**, adopted (not a build-vs-buy question). It ships polygon and
-  rectangle; point and polyline need a small plugin — evaluated and confirmed **plugin-feasible,
-  no fork required** in `docs/annotorious_check_findings.md`. That plugin is Svelte-authored
-  (Annotorious v3 is internally Svelte), so the frontend build tooling in WO-0.1 needs to be
-  Svelte-capable specifically (e.g. Vite + `@sveltejs/vite-plugin-svelte`), which the scoping
-  doc's §8 doesn't spell out — treat that as settled, not open.
+- Annotation UI: **Annotorious v3**, adopted (not a build-vs-buy question). Polygon + rectangle
+  ship in the base package; **polyline** ships in `@annotorious/plugin-tools` (in use since
+  WO-0.4). **Point: CPDraw builds its own OSD overlay** — not an Annotorious `Point` primitive,
+  not PR #443 (decided 2026-09-02). Annotorious is Svelte-authored internally, so the frontend
+  build tooling in WO-0.1 must be Svelte-capable (Vite + `@sveltejs/vite-plugin-svelte`) —
+  settled, not open. Full story + correspondence: `docs/annotorious/` (`README.md` is the index).
 - Georeferencing/transform: **Allmaps** (`@allmaps/transform`, `@allmaps/cli`), invoked
   server-side from Django. Default to a low-order polynomial transform, not
   `thinPlateSpline` — see scoping doc §7b for why (cartographic displacement is evidence, not
   error to remove).
 - The user knows both Rainer Simon (Annotorious) and Bert Spaan (Allmaps) personally — gaps in
-  either library are a feature conversation, not necessarily something to work around alone. An
-  email to Rainer about the point/polyline plugin approach is pending a reply as of 2026-08-29.
+  either library are a feature conversation, not something to work around alone. Rainer replied
+  (2026-08-31 → 09-03, `docs/annotorious/rainer_20260903.txt`): a v3→v4 rewrite is coming
+  (DeckGL renderer, OpenLayers connector); polyline is covered by `plugin-tools`; point is
+  CPDraw's own overlay to build. Also flagged `@annotorious/plugin-magnetic-outline` (OpenCV.js
+  contour tracing) as worth trying — see `docs/guided-extraction.md`.
 
 ## Phase 0 target
 

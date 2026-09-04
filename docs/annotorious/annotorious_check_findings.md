@@ -1,16 +1,22 @@
 # Annotorious v3 — point/polyline extensibility assessment
 
-> **Partly superseded — 2026-08-29.** This assessment predates finding
-> `@annotorious/plugin-tools` (its repo is `github.com/annotorious/plugin-tools`,
-> not linked from `annotorious.dev` at the time). That plugin ships a working
-> **polyline** (`path`) tool for both the Image and OpenSeadragon annotators, so
-> section (b)'s "build two Svelte components, a few days" for polyline no longer
-> applies — CPDraw just depends on the plugin. For **point**, Rainer confirmed by
-> email it must be a real `Point` ShapeType, so section (b)'s Ellipse-as-point
-> recommendation is off the table; there is a full but unmerged implementation in
-> PR `annotorious/annotorious#443` to build a contribution from. The registry /
-> lifecycle analysis below (Q1–Q4) still holds. See scoping doc §9.1 and the
-> 2026-08-29 session log.
+> **Partly superseded.** Two updates since this was written:
+>
+> - **2026-08-29:** found `@annotorious/plugin-tools`
+>   (`github.com/annotorious/plugin-tools`, not linked from `annotorious.dev` at
+>   the time). It ships a working **polyline** (`path`) tool for both the Image
+>   and OpenSeadragon annotators, so section (b)'s "build two Svelte components,
+>   a few days" for polyline no longer applies — CPDraw just depends on the
+>   plugin (done in WO-0.4).
+> - **2026-09-02:** the **point** question is settled — CPDraw builds its own
+>   OpenSeadragon point overlay and does **not** pursue an Annotorious `Point`
+>   primitive or PR `#443`. So both section (b) point options (Ellipse-as-point
+>   *and* new-ShapeType) and section (c) are moot. Rainer's v3→v4 rewrite may add
+>   a native point tool later. See `README.md` in this folder and
+>   `rainer_20260903.txt`.
+>
+> The registry / lifecycle analysis below (Q1–Q4) still holds as a description of
+> how v3 extensibility works.
 
 ---
 
