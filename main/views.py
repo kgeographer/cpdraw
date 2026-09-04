@@ -1,20 +1,19 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import JsonResponse
-from django.db.models import Count, Q
+from django.http import Http404, HttpResponseForbidden, JsonResponse
+from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
 from urllib.parse import urlencode
 
-from .utils import myprojects
 from main.iiif import ingest_source, preflight
 from main.iiif.exceptions import IngestError
 from main.models import (MapImage, Placetype, Project, ProjectPlacetype,
                          ProjectUser, Source)
-from main.forms import ProjectCreateModelForm
+from main.forms import ProjectForm
 
 # Starter place-type vocabulary seeded into every new project (WO-0.4). Bregel's
 # five; the AAT mapping is attached only if load_aat_feature_types has been run.
@@ -25,6 +24,16 @@ STARTER_PLACETYPES = [
   ('dynasty', 300386176),
   ('cultural group', 300387171),
 ]
+
+
+def _seed_starter_placetypes(project):
+  """Give a new project the Bregel five (WO-0.4 / WO_0.2.md §1a)."""
+  aat = {p.aat_id: p for p in Placetype.objects.filter(
+    aat_id__in=[a for _, a in STARTER_PLACETYPES])}
+  ProjectPlacetype.objects.bulk_create([
+    ProjectPlacetype(project=project, source_label=label, aattype=aat.get(aat_id))
+    for label, aat_id in STARTER_PLACETYPES
+  ])
 
 # NOTE (WO-0.2): the Leaflet-era Draw page, Map CRUD, Feature CRUD, and the
 # CSV/LPF export (download_project / get_minmax / maketime) were removed here
@@ -37,23 +46,15 @@ class DashboardView(LoginRequiredMixin, ListView):
   context_object_name = 'project_list'
   template_name = 'main/dashboard.html'
 
-  login_url = '/accounts/login/'
-  redirect_field_name = 'redirect_to'
-
-  def _visible_projects(self):
-    me = self.request.user
-    if me.is_superuser or me.username in ['admin', 'karlg']:
-      return Project.objects.all()
-    return Project.objects.filter(Q(id__in=myprojects(me)) | Q(owner=me))
-
   def get_queryset(self):
-    return self._visible_projects().order_by('label')
+    return Project.objects.visible_to(self.request.user).order_by('label')
 
   def get_context_data(self, *args, **kwargs):
     context = super().get_context_data(*args, **kwargs)
+    visible = Project.objects.visible_to(self.request.user)
     context['map_images'] = (
       MapImage.objects
-      .filter(source__project__in=self._visible_projects())
+      .filter(source__project__in=visible)
       .select_related('source', 'source__project', 'workstate')
       .order_by('source__project__label', 'source__label', 'source_id', 'seq')
     )
@@ -66,11 +67,13 @@ class DrawView(LoginRequiredMixin, DetailView):
   pk_url_kwarg = 'image_id'
   template_name = 'main/draw.html'
   context_object_name = 'image'
-  login_url = '/accounts/login/'
 
   def get_queryset(self):
-    return MapImage.objects.select_related(
-      'source', 'source__project', 'workstate')
+    # only images in a project the user can see (WO-0.5)
+    visible = Project.objects.visible_to(self.request.user)
+    return (MapImage.objects
+            .filter(source__project__in=visible)
+            .select_related('source', 'source__project', 'workstate'))
 
   def get_context_data(self, **kwargs):
     ctx = super().get_context_data(**kwargs)
@@ -80,34 +83,31 @@ class DrawView(LoginRequiredMixin, DetailView):
 
 
 class ProjectCreateView(LoginRequiredMixin, CreateView):
-  form_class = ProjectCreateModelForm
+  form_class = ProjectForm
   template_name = 'main/project_create.html'
-  success_message = 'project created'
-  success_url = "/home/dashboard/"
-
-  login_url = '/accounts/login/'
-  redirect_field_name = 'redirect_to'
+  success_url = reverse_lazy('dashboard')
 
   def form_valid(self, form):
+    form.instance.owner = self.request.user
     response = super().form_valid(form)
-    aat = {p.aat_id: p for p in Placetype.objects.filter(
-      aat_id__in=[a for _, a in STARTER_PLACETYPES])}
-    ProjectPlacetype.objects.bulk_create([
-      ProjectPlacetype(project=self.object, source_label=label,
-                       aattype=aat.get(aat_id))
-      for label, aat_id in STARTER_PLACETYPES
-    ])
+    ProjectUser.objects.create(
+      project=self.object, user=self.request.user, role='owner')
+    _seed_starter_placetypes(self.object)
+    messages.success(self.request, f'Project "{self.object.label}" created.')
     return response
 
 
 class ProjectUpdateView(LoginRequiredMixin, UpdateView):
-  login_url = '/accounts/login/'
-  redirect_field_name = 'redirect_to'
-  success_url = "/home/dashboard/"
-
+  form_class = ProjectForm
   template_name = 'main/project_update.html'
+  success_url = reverse_lazy('dashboard')
   model = Project
-  fields = ['id', 'title', 'label', 'owner', 'uri']
+
+  def get_object(self, queryset=None):
+    obj = super().get_object(queryset)
+    if not obj.can_edit_metadata(self.request.user):
+      raise Http404
+    return obj
 
   def get_context_data(self, *args, **kwargs):
     context = super().get_context_data(*args, **kwargs)
@@ -129,6 +129,8 @@ def add_source(request, pk):
   tick 'add anyway', bounce back with the specifics and create nothing.
   """
   project = get_object_or_404(Project, pk=pk)
+  if not project.can_add_sources(request.user):
+    return HttpResponseForbidden('You need editor access on this project to add sources.')
   back = redirect('project-update', pk=pk)
 
   if request.method != 'POST':
@@ -170,9 +172,14 @@ def add_source(request, pk):
 
 @login_required
 def project_placetypes(request, pk):
-  """Manage a project's place-type vocabulary (WO-0.4)."""
+  """Manage a project's place-type vocabulary (WO-0.4). Any project member may
+  view; editors and owners may change it (WO-0.5 §1.2)."""
   project = get_object_or_404(Project, pk=pk)
+  if project.role_of(request.user) is None:
+    raise Http404                       # not a member — don't reveal it exists
   if request.method == 'POST':
+    if not project.can_manage_vocabulary(request.user):
+      return HttpResponseForbidden('You need editor access to change the vocabulary.')
     if request.POST.get('delete'):
       ProjectPlacetype.objects.filter(pk=request.POST['delete'], project=project).delete()
       messages.success(request, 'Type removed.')
@@ -193,27 +200,23 @@ def project_placetypes(request, pk):
   })
 
 
-class ProjectDeleteView(DeleteView):
+class ProjectDeleteView(LoginRequiredMixin, DeleteView):
   template_name = 'main/project_delete.html'
 
-  def get_object(self):
-    return get_object_or_404(Project, id=self.kwargs.get("id"))
+  def get_object(self, queryset=None):
+    obj = get_object_or_404(Project, id=self.kwargs.get("id"))
+    if not obj.can_edit_metadata(self.request.user):
+      raise Http404
+    return obj
 
   def get_success_url(self):
-    return reverse('main:dashboard')
+    return reverse('dashboard')
 
 
 @login_required
 def fetchProjects(request):
-  u = request.user
   result = {"projects": [], "maps": []}
-  if u.is_superuser:
-    projects = Project.objects.all()
-  else:
-    collab_projects = ProjectUser.objects.filter(user=u).values_list('project', flat=True)
-    projects = Project.objects.filter(Q(id__in=collab_projects) | Q(owner=u))
-
-  for p in projects:
+  for p in Project.objects.visible_to(request.user):
     placetypes = [t.as_dict() for t in ProjectPlacetype.objects.filter(project=p)]
     result['projects'].append({
       'id': p.id, 'owner': p.owner_id, 'label': p.label, 'title': p.title,
