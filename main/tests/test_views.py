@@ -6,7 +6,9 @@ from django.test import TestCase
 from main.iiif import Preflight
 from main.iiif.ingest import ImagePreflight
 from main.iiif.exceptions import FetchError
-from main.models import MapImage, Project, Source, WorkState
+from main.forms import ProjectForm
+from main.models import (MapImage, Placetype, Project, ProjectPlacetype,
+                         ProjectUser, Source, WorkState)
 
 
 def _clean_preflight():
@@ -223,3 +225,140 @@ class DrawViewTests(ProjectPageTests):
         resp = self.client.get("/draw/")
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp["Location"], "/dashboard/")
+
+
+# --------------------------------------------------------------------------
+# WO-0.5 — project create, spatial scope, role gates, visibility
+# --------------------------------------------------------------------------
+
+class ProjectCreateTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user("maker")
+        Placetype.objects.create(aat_id=300387178, term="historical region",
+                                 term_full="historical regions", note="")
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_create_sets_owner_membership_and_seeds_vocab(self):
+        resp = self.client.post("/project_create/", {
+            "title": "Galicia", "label": "gal", "uri": "",
+            "scope_ccodes": "", "scope_bbox": "", "scope_note": "",
+        })
+        self.assertRedirects(resp, "/dashboard/", fetch_redirect_response=False)
+        p = Project.objects.get(label="gal")
+        self.assertEqual(p.owner, self.user)                     # from request, not the form
+        self.assertTrue(ProjectUser.objects.filter(
+            project=p, user=self.user, role="owner").exists())
+        self.assertEqual(p.placetypes.count(), 5)
+        self.assertEqual(
+            p.placetypes.get(source_label="historical region").aattype_id, 300387178)
+
+    def test_create_stores_spatial_scope(self):
+        self.client.post("/project_create/", {
+            "title": "Scoped", "label": "sc", "uri": "",
+            "scope_ccodes": "pl, ua", "scope_bbox": "18.5, 47.7, 26.6, 50.9",
+            "scope_note": "eastern Galicia",
+        })
+        p = Project.objects.get(label="sc")
+        self.assertEqual(p.scope_ccodes, ["PL", "UA"])           # upper-cased
+        self.assertEqual(p.scope_bbox, [18.5, 47.7, 26.6, 50.9])
+        self.assertEqual(p.scope_note, "eastern Galicia")
+
+    def test_create_requires_login(self):
+        self.client.logout()
+        resp = self.client.get("/project_create/")
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/accounts/login/", resp["Location"])
+
+
+class ProjectFormScopeTests(TestCase):
+    def _form(self, **scope):
+        data = {"title": "T", "label": "t", "uri": ""}
+        data.update({"scope_ccodes": "", "scope_bbox": "", "scope_note": ""})
+        data.update(scope)
+        return ProjectForm(data)
+
+    def test_valid_scope_parses(self):
+        f = self._form(scope_ccodes="pl, ua", scope_bbox="1, 2, 3, 4")
+        self.assertTrue(f.is_valid(), f.errors)
+        self.assertEqual(f.cleaned_data["scope_ccodes"], ["PL", "UA"])
+        self.assertEqual(f.cleaned_data["scope_bbox"], [1.0, 2.0, 3.0, 4.0])
+
+    def test_blank_scope_is_none(self):
+        f = self._form()
+        self.assertTrue(f.is_valid(), f.errors)
+        self.assertIsNone(f.cleaned_data["scope_ccodes"])
+        self.assertIsNone(f.cleaned_data["scope_bbox"])
+
+    def test_bad_country_code_rejected(self):
+        self.assertIn("scope_ccodes", self._form(scope_ccodes="PLX").errors)
+        self.assertIn("scope_ccodes", self._form(scope_ccodes="7").errors)
+
+    def test_bbox_must_have_four_numbers(self):
+        self.assertIn("scope_bbox", self._form(scope_bbox="1, 2, 3").errors)
+
+    def test_bbox_orientation_enforced(self):
+        self.assertIn("scope_bbox", self._form(scope_bbox="10, 0, 5, 9").errors)   # w >= e
+        self.assertIn("scope_bbox", self._form(scope_bbox="0, 9, 5, 1").errors)    # s >= n
+
+
+class ProjectPermissionTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.owner = User.objects.create_user("owner")
+        cls.editor = User.objects.create_user("editor")
+        cls.annot = User.objects.create_user("annot")
+        cls.stranger = User.objects.create_user("stranger")
+        cls.p = Project.objects.create(owner=cls.owner, title="P", label="p")
+        ProjectUser.objects.create(project=cls.p, user=cls.owner, role="owner")
+        ProjectUser.objects.create(project=cls.p, user=cls.editor, role="editor")
+        ProjectUser.objects.create(project=cls.p, user=cls.annot, role="annotator")
+        Placetype.objects.create(aat_id=1, term="x", term_full="x", note="")
+
+    def _as(self, user):
+        self.client.force_login(user)
+
+    def test_update_page_owner_only(self):
+        self._as(self.owner)
+        self.assertEqual(self.client.get(f"/project_update/{self.p.id}").status_code, 200)
+        for u in (self.editor, self.annot, self.stranger):
+            self._as(u)
+            self.assertEqual(
+                self.client.get(f"/project_update/{self.p.id}").status_code, 404)
+
+    def test_delete_owner_only(self):
+        self._as(self.annot)
+        self.assertEqual(self.client.get(f"/project_delete/{self.p.id}").status_code, 404)
+        self._as(self.owner)
+        self.assertEqual(self.client.get(f"/project_delete/{self.p.id}").status_code, 200)
+
+    def test_add_source_editor_plus(self):
+        for u, code in [(self.owner, 302), (self.editor, 302),
+                        (self.annot, 403), (self.stranger, 403)]:
+            self._as(u)
+            resp = self.client.post(
+                f"/project/{self.p.id}/add_source/", {"uri": ""})
+            self.assertEqual(resp.status_code, code, u.username)
+
+    def test_project_types_membership_and_editor_gate(self):
+        self._as(self.stranger)
+        self.assertEqual(self.client.get(f"/project/{self.p.id}/types/").status_code, 404)
+        self._as(self.annot)
+        self.assertEqual(self.client.get(f"/project/{self.p.id}/types/").status_code, 200)
+        self.assertEqual(self.client.post(
+            f"/project/{self.p.id}/types/", {"source_label": "nope"}).status_code, 403)
+        self.assertFalse(self.p.placetypes.filter(source_label="nope").exists())
+        self._as(self.editor)
+        self.client.post(f"/project/{self.p.id}/types/", {"source_label": "yep"})
+        self.assertTrue(self.p.placetypes.filter(source_label="yep").exists())
+
+    def test_dashboard_lists_only_visible_projects(self):
+        other = Project.objects.create(
+            owner=self.stranger, title="Other", label="other")
+        self._as(self.annot)
+        resp = self.client.get("/dashboard/")
+        labels = [p.label for p in resp.context["project_list"]]
+        self.assertIn("p", labels)
+        self.assertNotIn("other", labels)

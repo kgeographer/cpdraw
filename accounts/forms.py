@@ -44,6 +44,9 @@ class UserModelForm(forms.ModelForm):
 
 
 class ProfileModelForm(forms.ModelForm):
+    # Profile.web_page is null=True but (inherited) blank=False, which would
+    # make it required on this form. Optional here; model cleanup is a follow-up.
+    web_page = forms.URLField(required=False)
 
     class Meta:
         model = Profile
