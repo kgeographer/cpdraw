@@ -36,8 +36,15 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL='/accounts/login/'
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'index'
+
+# E-mail — console backend for dev: password-reset messages print to the
+# runserver console. Real SMTP is a local_settings.py / deploy concern (WO-0.5
+# §1.7).
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'CPDraw <noreply@cpdraw.local>'
 
 # Application definition
 
@@ -76,7 +83,9 @@ ROOT_URLCONF = 'cpdraw.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # Project-level templates win over app templates — needed so the
+        # registration/ overrides beat the copies django.contrib.admin ships.
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'debug': True,
