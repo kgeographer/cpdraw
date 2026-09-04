@@ -107,12 +107,39 @@ Working spec: `docs/WO_0.4.md`.
 - API is plain DRF (`/api/annotations/`, `/api/project-placetypes/`,
   `/api/placetypes/search/`) — session auth, `IsAuthenticated`, no pagination.
 
-## Next — WO-0.5
+## Auth, projects, roles (WO-0.5 — done; Phase 0 complete)
 
-Existing auth / project / map-list views wired through, and the register/login flow rebuilt
-to Django conventions (`UserCreationForm`, `PasswordResetView`, `LoginView`). Carried:
-spatial-scope capture at project-create (WO_0.2.md §1a). Point capture is Phase 1
-(a CPDraw OSD overlay, §9.1).
+Working spec: `docs/WO_0.5.md` (§9 = as-built).
+
+- **Auth is Django-conventional.** `accounts/`: `SignupForm(UserCreationForm)` +
+  `RegisterView`; `LoginView` / `LogoutView` / `PasswordChange*` / `PasswordReset*` from
+  `django.contrib.auth.views`. Reset email = console backend in dev (`DEFAULT_FROM_EMAIL`
+  set; SMTP is deploy-time). Auth-template overrides live in the project-level
+  `templates/registration/` (they must beat the copies `django.contrib.admin` ships).
+- **Roles** on `ProjectUser`: `owner | editor | annotator` (`main/choices.TEAMROLES`).
+  `Project.owner` (FK) is an implicit owner. `Project` carries `role_of(user)` +
+  `can_edit_metadata` / `can_add_sources` / `can_manage_vocabulary` / `can_edit_annotation`;
+  `Project.objects.visible_to(user)` (superuser → all, else owned ∪ membership). Template
+  gating via `main/templatetags/project_perms.py`. Superuser = `is_superuser` only.
+- **Enforcement is at the Django view layer** (project create/update/delete, `add_source`,
+  `project_placetypes`). The DRF endpoints still just use `IsAuthenticated` — object-level
+  permission classes are WO-0.6.
+- **`Project` spatial scope** (`scope_ccodes` / `scope_bbox` / `scope_note`, all optional;
+  `ProjectForm` via `SimpleArrayField`) — the WO_0.2.md §1a carry-over. No map picker
+  (Phase 1, when §7a consumes it).
+- **`MapImagePlacetype`** — per-map narrowing of the project vocab. "No rows = inherit the
+  full set"; `MapImage.available_placetypes`. **Table + helper only this WO** — the
+  annotation-picker filter and editor UI are a later WO.
+- `ProjectCreateView` writes a `ProjectUser(role='owner')` row and seeds Bregel's five.
+
+## Next — WO-0.6
+
+Join keys / invite flow (`ProjectInvite`, `/join/<key>/`, owner mint-revoke UI);
+object-level DRF permission classes on `/api/annotations/` + `/api/project-placetypes/`
+(rebuild `accounts/permissions.py`, deleted in WO-0.5); the `MapImagePlacetype` read path +
+editor UI; front-end library modernisation (Bootstrap 4 → 5, drop jQuery/jQuery-UI, fix the
+`http://ajax.googleapis.com` mixed-content link); read-only Source detail page (retire the
+`/admin/` links). Point capture is Phase 1 (a CPDraw OSD overlay, §9.1).
 
 ## Key decisions already made (see scoping doc for full reasoning)
 

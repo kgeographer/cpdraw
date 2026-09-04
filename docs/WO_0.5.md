@@ -1,8 +1,9 @@
 # WO-0.5 — auth, project, and map-list views wired through
 
-**Status:** working spec, for review. Decomposes scoping-doc §10 Phase 0 "WO-0.5 —
-Existing auth, project, and map-list views wired through". § refs are to
-`docs/CPDraw — scoping document.md`.
+**Status:** delivered 2026-09-03 (commits `2bb8561`…`0669f0a` on `wo-0.5`).
+Decomposes scoping-doc §10 Phase 0 "WO-0.5 — Existing auth, project, and map-list
+views wired through". § refs are to `docs/CPDraw — scoping document.md`.
+As-built deviations from this spec are in §9; carried-forward items in §8.
 
 **Scope:** rebuild the hand-rolled `accounts/` register/login/logout to Django
 conventions (`UserCreationForm`, `LoginView`, `LogoutView`); stub the
@@ -443,3 +444,45 @@ draw` path is navigable end to end with working back-links. The Braga demo path
   transfer, last-owner-leaves guard) — not needed for Phase 0.
 - **Spatial-scope map-draw picker** — Phase 1, when §7a gazetteer lookup first
   consumes `Project` scope. WO-0.5 captures the fields as plain text.
+- **`Profile.web_page`** is `null=True` but (inherited) `blank=False`.
+  `ProfileModelForm` overrides it to `required=False` as a stopgap; the model
+  field should get `blank=True` in a future `accounts` migration.
+- **Django-admin `registration/` templates** shadow app templates whenever
+  `django.contrib.admin` precedes an app in `INSTALLED_APPS`. WO-0.5 dodged this
+  with a project-level `templates/` dir on `TEMPLATES['DIRS']`; keep new
+  auth-template overrides there, not in `accounts/templates/registration/`.
+
+---
+
+## 9. As-built notes (deviations from the spec above)
+
+- **Migrations:** `main/0004` (Project scope + ProjectUser role/unique/`created`
+  + `creator→owner` RunPython + `MapImagePlacetype`) and
+  `accounts/0002` (drop `Profile.user_type`). Two, as planned.
+- **Shared project-form partial** is `main/_project_fields.html` (the repo's
+  `_`-prefixed partial convention), not `project_form.html`. It renders the form
+  body; each parent template keeps its own `<form>` + submit.
+- **Template role-gating** goes through `main/templatetags/project_perms.py`
+  filters (`can_edit_project`, `can_add_sources`, `can_manage_vocab`,
+  `project_role`) rather than view-computed context booleans — reusable across
+  the dashboard's per-row loop. `project_placetypes` still passes a `can_manage`
+  bool (function view, no project object in a loop).
+- **`ProjectUpdateView` non-owner → 404** (via `get_object`), not 403 — chosen so
+  the page doesn't confirm a project exists to non-members. `add_source` and
+  `project_placetypes` POST return **403** (the resource is already known to the
+  caller by then).
+- **`DrawView`** gained a `visible_to` scope (WO-0.3 had left it any-authenticated).
+- **`accounts/permissions.py`** deleted rather than rebuilt — WO-0.6 writes the
+  project-role-aware DRF classes fresh.
+- **Auth CBV `success_url`s** left at their Django defaults (the standard URL
+  names resolve), so `accounts/urls.py` is just the view wiring.
+- **Extra fix (commit `0669f0a`):** the draw-page header status badge is
+  server-rendered, so it sat on "unstarted" after the first annotation advanced
+  `WorkState` server-side. `annotationStore.ts` now fires
+  `cpdraw:annotation-created`; `main.ts` flips the `#draw-status` badge live.
+- **Dev-DB one-offs:** `admin` was already `is_superuser`; no `karlg` user exists
+  yet (register when needed). Backfilled `ProjectUser(role='owner')` rows for the
+  three pre-existing projects (`role_of` / `visible_to` fall back to the owner FK,
+  so this was tidiness, not a fix).
+- **Tests:** 70 → 103. `accounts/tests.py` 0 → 12; `main/tests/test_models.py`
+  new (8); `main/tests/test_views.py` +13. `pnpm check` / `pnpm build` clean.
