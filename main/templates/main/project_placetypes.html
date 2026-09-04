@@ -3,7 +3,12 @@
 {% block title %}<title>CPDraw — {{ project.label }} types</title>{% endblock %}
 {% block content %}
 <div class="container mt-3">
-  <p class="mb-1"><a href="{% url 'project-update' project.id %}">&larr; {{ project.label }}</a></p>
+  <nav class="small mb-1">
+    <a href="{% url 'dashboard' %}">Dashboard</a>
+    <span class="text-muted">/</span>
+    <a href="{% url 'project-update' project.id %}">{{ project.label }}</a>
+    <span class="text-muted">/</span> types
+  </nav>
   <h4 class="text-warning">place-type vocabulary</h4>
   <p class="small text-muted">
     Your own terms for this project. Attach a Getty AAT type when there is a
@@ -20,10 +25,12 @@
             {% if pt.aattype_id %}{{ pt.aat_term }} <span>(aat:{{ pt.aattype_id }})</span>{% else %}—{% endif %}
           </td>
           <td class="small">
+            {% if can_manage %}
             <form method="post" class="d-inline">{% csrf_token %}
               <input type="hidden" name="delete" value="{{ pt.id }}">
               <button class="btn btn-link btn-sm p-0 text-danger" type="submit">remove</button>
             </form>
+            {% endif %}
           </td>
         </tr>
       {% empty %}
@@ -32,6 +39,7 @@
     </tbody>
   </table>
 
+  {% if can_manage %}
   <form method="post" class="mt-2" style="max-width: 42rem" id="add-type-form">
     {% csrf_token %}
     <div class="form-row">
@@ -52,6 +60,7 @@
       </div>
     </div>
   </form>
+  {% endif %}
 </div>
 
 <script>

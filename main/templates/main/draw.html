@@ -22,7 +22,12 @@
 {% endblock %}
 {% block content %}
 <div id="draw-header">
-  <a href="{% url 'project-update' image.source.project_id %}">&larr; {{ image.source.project.label }}</a>
+  <span class="small">
+    <a href="{% url 'dashboard' %}">Dashboard</a>
+    <span class="text-muted">/</span>
+    <a href="{% url 'project-update' image.source.project_id %}">{{ image.source.project.label }}</a>
+    <span class="text-muted">/</span>
+  </span>
   <strong>{{ image.source }}</strong>
   <span class="text-muted">
     {{ image.label|default:"—" }} &middot; {{ image.width }}&times;{{ image.height }}

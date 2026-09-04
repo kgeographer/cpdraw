@@ -197,6 +197,7 @@ def project_placetypes(request, pk):
   return render(request, 'main/project_placetypes.html', {
     'project': project,
     'placetypes': project.placetypes.select_related('aattype').all(),
+    'can_manage': project.can_manage_vocabulary(request.user),
   })
 
 
