@@ -10,8 +10,21 @@ from main.choices import TEAMROLES
 
 # ---------------------------------------------------------------------------
 # Carried forward from the predecessor (see CLAUDE.md): users, project
-# membership, and the AAT placetype-vocabulary scoping. Unchanged.
+# membership, and the AAT placetype-vocabulary scoping. Project gained spatial
+# scope + role-aware permission helpers in WO-0.5.
 # ---------------------------------------------------------------------------
+
+class ProjectQuerySet(models.QuerySet):
+  def visible_to(self, user):
+    """Projects `user` may see: all of them for a superuser, otherwise the ones
+    they own or hold a ProjectUser membership in."""
+    if not user.is_authenticated:
+      return self.none()
+    if user.is_superuser:
+      return self
+    member_of = ProjectUser.objects.filter(user=user).values('project')
+    return self.filter(models.Q(owner=user) | models.Q(pk__in=member_of)).distinct()
+
 
 class Project(models.Model):
   owner = models.ForeignKey(settings.AUTH_USER_MODEL,
@@ -22,6 +35,14 @@ class Project(models.Model):
   uri = models.URLField(blank=True, null=True)
   create_date = models.DateTimeField(null=True, auto_now_add=True)
 
+  # -- spatial scope (§3; stated, not derived). All optional. `Source` carries
+  #    the same three fields as a per-source override. --------------------
+  scope_ccodes = ArrayField(models.CharField(max_length=2), null=True, blank=True)  # ISO 3166-1 alpha-2
+  scope_bbox = ArrayField(models.FloatField(), size=4, null=True, blank=True)       # [w, s, e, n]
+  scope_note = models.CharField(max_length=255, blank=True)                         # named study area / free text
+
+  objects = ProjectQuerySet.as_manager()
+
   @property
   def collab(self):
     projusers=ProjectUser.objects.filter(project_id = self.id)
@@ -30,6 +51,37 @@ class Project(models.Model):
       u = get_object_or_404(User, id=pu.user_id)
       collabs.append(u)
     return collabs
+
+  # -- role-aware permissions (WO-0.5 §1.2). Enforced at the view layer here;
+  #    the DRF endpoints get object-level classes in WO-0.6. -------------
+  def role_of(self, user):
+    """'owner' | 'editor' | 'annotator' | None. Superuser and the owner FK
+    both resolve to 'owner'."""
+    if not user.is_authenticated:
+      return None
+    if user.is_superuser or self.owner_id == user.id:
+      return 'owner'
+    pu = ProjectUser.objects.filter(project=self, user=user).first()
+    return pu.role if pu else None
+
+  def _has_role(self, user, roles):
+    return self.role_of(user) in roles
+
+  def can_edit_metadata(self, user):
+    return self._has_role(user, {'owner'})
+
+  def can_add_sources(self, user):
+    return self._has_role(user, {'owner', 'editor'})
+
+  def can_manage_vocabulary(self, user):
+    return self._has_role(user, {'owner', 'editor'})
+
+  def can_edit_annotation(self, user, annotation):
+    if not user.is_authenticated:
+      return False
+    if annotation.created_by_id == user.id:
+      return True
+    return self._has_role(user, {'owner', 'editor'})
 
   def __str__(self):
     return self.label
@@ -45,10 +97,15 @@ class ProjectUser(models.Model):
   user = models.ForeignKey(User, related_name='users',
                              default=-1, on_delete=models.CASCADE)
   role = models.CharField(max_length=20, null=False, choices=TEAMROLES)
+  created = models.DateTimeField(auto_now_add=True, null=True)
+
+  def __str__(self):
+    return f'{self.user} · {self.project} · {self.role}'
 
   class Meta:
     managed = True
     db_table = 'project_user'
+    unique_together = (('project', 'user'),)
 
 
 class Placetype(models.Model):
@@ -203,6 +260,15 @@ class MapImage(models.Model):
   def has_quality_warning(self):
     return any(n.get('level') == 'warning' for n in self.quality_notes)
 
+  @property
+  def available_placetypes(self):
+    """ProjectPlacetypes offered for annotation on this image: the linked subset
+    if any MapImagePlacetype rows exist, else the whole project vocabulary
+    (WO-0.5 §1.4 — "no rows = inherit"). Returns a queryset either way. The
+    read-path consumer + editor UI land with the next annotation-frontend WO."""
+    scoped = ProjectPlacetype.objects.filter(image_scopes__image=self)
+    return scoped if scoped.exists() else self.source.project.placetypes.all()
+
   class Meta:
     managed = True
     db_table = 'map_images'
@@ -211,6 +277,31 @@ class MapImage(models.Model):
       models.UniqueConstraint(fields=['source', 'seq'],
                               name='uniq_mapimage_seq_per_source'),
     ]
+
+
+class MapImagePlacetype(models.Model):
+  """Per-map narrowing of the project placetype vocabulary (WO-0.5 §1.4).
+
+  No rows for an image → `MapImage.available_placetypes` returns the full
+  project set; one or more rows → only the linked `ProjectPlacetype`s.
+  `on_delete=CASCADE` on `placetype` keeps this self-cleaning when a
+  `ProjectPlacetype` is removed — no dangling refs, no cleanup signal.
+
+  WO-0.5 ships the table only; the annotation picker still shows the whole
+  project vocab until a later WO wires `available_placetypes` in.
+  """
+  image = models.ForeignKey('main.MapImage', related_name='placetypes',
+                            on_delete=models.CASCADE)
+  placetype = models.ForeignKey('main.ProjectPlacetype', related_name='image_scopes',
+                                on_delete=models.CASCADE)
+
+  def __str__(self):
+    return f'{self.image} · {self.placetype}'
+
+  class Meta:
+    managed = True
+    db_table = 'map_image_placetype'
+    unique_together = (('image', 'placetype'),)
 
 
 class WorkState(models.Model):
