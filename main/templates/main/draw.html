@@ -34,7 +34,9 @@
   </span>
   <span class="ml-auto">
     {% include "main/_quality_flag.html" with notes=image.quality_notes warning=image.has_quality_warning %}
-    {% include "main/_status_badge.html" with status=image.workstate.status %}
+    <span id="draw-status" data-status="{{ image.workstate.status|default:'unstarted' }}">
+      {% include "main/_status_badge.html" with status=image.workstate.status %}
+    </span>
   </span>
 </div>
 

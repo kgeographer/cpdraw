@@ -51,6 +51,9 @@ export function attachStore(anno: any, imageId: number): Store {
         body: JSON.stringify({ image: imageId, name: '', ...geometryKind(a), w3c: a }),
       });
       idMap.set(a.id, row.id);
+      // server advances WorkState unstarted -> in_progress on the first
+      // annotation; let the page reflect it without a reload
+      window.dispatchEvent(new CustomEvent('cpdraw:annotation-created'));
     } catch (e) {
       console.error('[cpdraw] create failed', e);
     }

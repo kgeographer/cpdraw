@@ -4,6 +4,16 @@
 
 import App from './App.svelte';
 
+// The header status badge is server-rendered at page load. The first annotation
+// flips WorkState unstarted -> in_progress in AnnotationViewSet.perform_create;
+// reflect that in the badge here rather than making the user reload.
+window.addEventListener('cpdraw:annotation-created', () => {
+  const el = document.getElementById('draw-status');
+  if (!el || el.dataset.status === 'in_progress' || el.dataset.status === 'complete') return;
+  el.dataset.status = 'in_progress';
+  el.innerHTML = '<span class="badge badge-primary">in progress</span>';
+});
+
 const target = document.getElementById('cpdraw-draw-root');
 
 if (!target) {
